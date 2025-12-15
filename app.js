@@ -1,3 +1,4 @@
+// app.js
 // Farming CBA Tool - Newcastle Business School
 // Fully upgraded script with working tabs, CBA, simulation, Excel import/exports, Copilot helper,
 // and trial calibration using the 2022 faba bean dataset.
@@ -127,7 +128,7 @@
         theme: "Risk reduction",
         frequency: "Annual",
         startYear: new Date().getFullYear(),
-        endYear: new Date().getFullFullYear ? new Date().getFullYear() + 9 : new Date().getFullYear() + 9,
+        endYear: new Date().getFullYear() + 9,
         year: new Date().getFullYear(),
         unitValue: 0,
         quantity: 0,
@@ -231,8 +232,8 @@
         ? n.toLocaleString(undefined, { maximumFractionDigits: 0 })
         : n.toLocaleString(undefined, { maximumFractionDigits: 2 })
       : "n/a";
-  const money = n => (isFinite(n) ? "$" + fmt(n) : "n/a";
-  const percent = n => (isFinite(n) ? fmt(n) + "%" : "n/a";
+  const money = n => (isFinite(n) ? "$" + fmt(n) : "n/a");
+  const percent = n => (isFinite(n) ? fmt(n) + "%" : "n/a");
   const slug = s =>
     (s || "project")
       .toLowerCase()
