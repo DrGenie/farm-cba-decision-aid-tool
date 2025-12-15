@@ -1,402 +1,947 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Farming CBA Decision Aid Technical Appendix</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="styles.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>Technical Appendix - Farming CBA Decision Aid Tool (AUD)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .appendix-main {
+      max-width: 1240px;
+      margin: 1.5rem auto 2.5rem;
+      padding: 0 1.25rem 1.5rem;
+    }
+
+    .appendix-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .appendix-title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .appendix-kicker {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--color-text-muted);
+    }
+
+    .appendix-title {
+      font-size: 1.45rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .appendix-subtitle {
+      font-size: 0.88rem;
+      color: var(--color-text-muted);
+    }
+
+    .appendix-section {
+      margin-bottom: 1.2rem;
+    }
+
+    .appendix-section h2 {
+      font-size: 1.1rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .appendix-section h3 {
+      font-size: 0.98rem;
+      margin-top: 0.7rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .appendix-section p {
+      font-size: 0.9rem;
+      line-height: 1.55;
+      margin: 0 0 0.45rem;
+    }
+
+    .appendix-note {
+      font-size: 0.8rem;
+      color: var(--color-text-muted);
+      border-left: 3px solid var(--color-primary);
+      padding-left: 0.6rem;
+      margin-top: 0.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .appendix-callout {
+      border-radius: 12px;
+      border: 1px solid var(--color-border);
+      background: #f9fafb;
+      padding: 0.7rem 0.8rem;
+      margin: 0.4rem 0 0.7rem;
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .appendix-callout-steps p {
+      margin-bottom: 0.25rem;
+    }
+
+    .appendix-table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      padding-bottom: 0.3rem;
+      margin-top: 0.25rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .appendix-table {
+      width: 100%;
+      min-width: 640px;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .appendix-table thead {
+      background: #f1f5f9;
+    }
+
+    .appendix-table th,
+    .appendix-table td {
+      border: 1px solid var(--color-border);
+      padding: 0.35rem 0.5rem;
+      text-align: left;
+    }
+
+    .appendix-table th {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .appendix-table tbody tr:nth-child(even) {
+      background: #f9fafb;
+    }
+
+    .appendix-math {
+      font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.82rem;
+      background: #0b1120;
+      color: #e5e7eb;
+      border-radius: 8px;
+      padding: 0.55rem 0.65rem;
+      margin: 0.35rem 0 0.55rem;
+      white-space: pre-wrap;
+    }
+
+    .appendix-two-column {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 0.9rem;
+      margin-top: 0.4rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .appendix-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: var(--color-primary-soft);
+      color: var(--color-primary);
+      margin-bottom: 0.2rem;
+    }
+
+    .appendix-badge-soft {
+      background: #e5e7eb;
+      color: #374151;
+    }
+
+    .appendix-footer-note {
+      font-size: 0.78rem;
+      color: var(--color-text-muted);
+      margin-top: 0.6rem;
+    }
+
+    @media (max-width: 900px) {
+      .appendix-two-column {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .appendix-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
 </head>
 <body data-theme="worldbank-light">
-  <main class="app-main">
-    <section class="card">
-      <h1>Farming CBA Decision Aid Technical Appendix</h1>
+  <div class="appendix-main">
+    <header class="appendix-header">
+      <div class="appendix-title-block">
+        <div class="appendix-kicker">Technical appendix and user guide</div>
+        <div class="appendix-title">Farming CBA Decision Aid Tool</div>
+        <div class="appendix-subtitle">
+          All monetary figures in this appendix are expressed in Australian dollars (AUD).
+        </div>
+      </div>
+      <div>
+        <a href="index.html" class="btn ghost">Back to main tool</a>
+      </div>
+    </header>
+
+    <section class="card appendix-section">
+      <h2>1. Purpose of this appendix</h2>
       <p>
-        This appendix explains how the Farming Cost Benefit Analysis (CBA) Decision Aid works.
-        It describes each tab in the tool, defines all indicators in plain language, and sets out the formulas used for the calculations.
-        The aim is to support both non technical users such as farmers and technical users such as economists, agronomists, and analysts.
+        This appendix explains how the Farming Cost Benefit Analysis Decision Aid works. It is written
+        for two audiences. The first audience is farmers and non technical users who want practical
+        guidance on how to use the tool and how to read the results. The second audience is technical
+        users who want to understand the underlying calculations and assumptions.
       </p>
       <p>
-        The tool is designed to be flexible.
-        You can use it with the example faba bean dataset or replace the data with other crops and new trial results.
+        The example in this appendix is a faba bean soil amendment trial. All costs and benefits are
+        presented in Australian dollars (AUD). If you work in another currency you can simply treat
+        every AUD value as your own currency and apply the same logic.
       </p>
+      <div class="appendix-callout">
+        For quick use, focus on Sections 2 and 4. Section 2 describes how each tab in the tool works.
+        Section 4 gives a worked faba bean example in plain language. Sections 3 and 5 provide
+        technical detail and formulas for analysts and reviewers.
+      </div>
     </section>
 
-    <section class="card">
-      <h2>1. Structure of the tool</h2>
-      <p>The tool has several tabs that work together.</p>
-      <h3>1.1 Tabs and their roles</h3>
-      <p><strong>Introduction tab.</strong> Gives a high level overview of the tool, the idea of cost benefit analysis, and how to read the main indicators.</p>
-      <p><strong>Treatments tab.</strong> Describes the different farming options that can be compared.
-        For example, a control practice and one or more improved treatments.
-        Treatment inputs include yield, labour cost, other operating costs, and any capital requirements.</p>
-      <p><strong>Costs tab.</strong> Allows you to specify detailed cost information for capital and other cost categories.
-        Capital cost includes a depreciation row, which spreads the cost of assets over their useful life.
-        For non capital categories, there is no depreciation row.</p>
-      <p><strong>Simulation tab.</strong> Brings together the treatment data, costs, and farm level settings.
-        You can choose the comparison (control versus treatment), set the farm size, planning horizon, discount rate, and adoption rate assumptions.
-        Adoption rates are handled as part of sensitivity analysis in this tab.</p>
-      <p><strong>Results tab.</strong> Summarises the outcomes of the simulation.
-        It reports incremental net benefits, net present value (NPV), benefit cost ratio (BCR), payback period, and other selected indicators.</p>
-      <p><strong>Technical appendix tab.</strong> Provides this full explanation of methods, formulas, and worked examples.</p>
-    </section>
+    <section class="card appendix-section">
+      <h2>2. How each tab in the tool works</h2>
 
-    <section class="card">
-      <h2>2. Guidance for non technical users</h2>
-      <p>This section is written for farmers, extension workers, and other non technical users.</p>
-
-      <h3>2.1 Key ideas in simple terms</h3>
-      <p><strong>Control.</strong> This is the current practice on the farm.
-        For example, using farmer saved seed and a basic fertiliser regimen.</p>
-      <p><strong>Treatment.</strong> This is a new or improved practice.
-        For example, using improved seed, better fertiliser, or additional agronomy support.</p>
-      <p><strong>Yield.</strong> The amount of crop harvested per hectare, usually in kilograms or tonnes.
-        Higher yield means more product to sell or consume.</p>
-      <p><strong>Labour cost.</strong> The value of time spent on the crop.
-        It can be the wage paid to workers or the value placed on the farmer’s own time.</p>
-      <p><strong>Capital cost.</strong> Longer lasting items such as machinery, equipment, or irrigation systems.
-        These are not used up in one year, so the tool spreads their cost over several years using depreciation.</p>
-      <p><strong>Net benefit.</strong> The extra money you gain after paying all costs.
-        In simple terms: extra income minus extra costs.</p>
-      <p><strong>Net present value (NPV).</strong> The value today of the extra money you expect in future years.
-        Future money is discounted because money available now is more valuable than the same amount in the future.</p>
-      <p><strong>Benefit cost ratio (BCR).</strong> Compares the value of benefits to the value of costs.
-        If the BCR is greater than 1, benefits are larger than costs.</p>
-
-      <h3>2.2 Step by step use for farmers</h3>
-      <p><strong>Step 1. Choose the crop and treatments.</strong>
-        On the Treatments tab, look at the control practice and the improved treatments.
-        Check that the yield and cost numbers match your local situation or the trial results you trust.
-        If needed, update the numbers.</p>
-      <p><strong>Step 2. Check and update cost details.</strong>
-        On the Costs tab, confirm the capital and other costs.
-        For example, if a treatment needs a new sprayer or irrigation equipment, enter its cost and how many years it will last.
-        The tool will calculate how much of that cost belongs to each year.</p>
-      <p><strong>Step 3. Set farm level settings.</strong>
-        On the Simulation tab, select the comparison under “Control versus treatment”.
-        Then enter the number of hectares, planning horizon (how many years you want to look ahead), and the discount rate.
-        If you are not sure about the discount rate, you can use the default or test several values.</p>
-      <p><strong>Step 4. Choose adoption rate assumptions.</strong>
-        Still in the Simulation tab, use the adoption rate inputs to reflect how many farmers or how much area might adopt the treatment.
-        You can run different simulations with low, medium, and high adoption to see how the results change.</p>
-      <p><strong>Step 5. Run the simulation.</strong>
-        When you change any input, the tool recalculates automatically.
-        Move to the Results tab to see the impact of your choices.</p>
-      <p><strong>Step 6. Interpret the results.</strong>
-        Look first at whether the incremental net benefit per hectare is positive.
-        If it is positive and the BCR is above 1, the treatment is financially attractive under your assumptions.
-        Also consider how quickly costs are recovered and whether the required investment is feasible.</p>
-    </section>
-
-    <section class="card">
-      <h2>3. Guidance for technical users</h2>
-      <p>This section is written for technical users who want to understand precisely how the calculations are performed.</p>
-
-      <h3>3.1 Notation</h3>
-      <p>The following notation is used in the formulas.</p>
-      <p><strong>t</strong> is the year index, t = 0, 1, 2, …, T − 1.</p>
-      <p><strong>T</strong> is the planning horizon in years.</p>
-      <p><strong>r</strong> is the real discount rate per year.</p>
-      <p><strong>A</strong> is the farm area in hectares that is relevant for the intervention.</p>
-      <p><strong>a</strong> is the adoption rate as a proportion between 0 and 1.</p>
-      <p><strong>Y<sub>c</sub></strong> is the yield under the control practice (per hectare per year).</p>
-      <p><strong>Y<sub>t</sub></strong> is the yield under the treatment (per hectare per year).</p>
-      <p><strong>P</strong> is the farmgate price of output per unit (for example per kilogram).</p>
-      <p><strong>C<sub>c</sub></strong> is the total cost per hectare per year under the control practice, including labour.</p>
-      <p><strong>C<sub>t</sub></strong> is the total cost per hectare per year under the treatment, including labour.</p>
-      <p><strong>K</strong> is the capital cost associated with the treatment that is incurred at the start.</p>
-      <p><strong>L</strong> is the useful life of the capital in years.</p>
-
-      <h3>3.2 Annual benefits and costs per hectare</h3>
-      <p><strong>Incremental yield per hectare.</strong></p>
-      <p>ΔY = Y<sub>t</sub> − Y<sub>c</sub></p>
-      <p><strong>Incremental revenue per hectare per year.</strong></p>
-      <p>B<sub>ha</sub> = ΔY × P</p>
-      <p><strong>Incremental cost per hectare per year (excluding capital).</strong></p>
-      <p>ΔC = C<sub>t</sub> − C<sub>c</sub></p>
-      <p><strong>Annualised capital cost per hectare.</strong></p>
-      <p>For straight line depreciation, the annual capital charge is:</p>
-      <p>K<sub>annual</sub> = K / L</p>
-      <p>If K is expressed per hectare, this is already scaled by area.
-        If K is per unit of equipment, it can be converted to a per hectare basis using expected area of use per year.</p>
-      <p><strong>Net benefit per hectare per year.</strong></p>
-      <p>NB<sub>ha</sub> = B<sub>ha</sub> − ΔC − K<sub>annual</sub></p>
-
-      <h3>3.3 Scaling to farm level and adoption</h3>
-      <p><strong>Effective area under treatment.</strong></p>
-      <p>A<sub>eff</sub> = A × a</p>
-      <p><strong>Annual net benefit at farm level.</strong></p>
-      <p>NB<sub>farm,t</sub> = NB<sub>ha</sub> × A<sub>eff</sub></p>
-      <p>In the simplest case, NB<sub>ha</sub> is constant over time.
-        More complex profiles, for example learning or yield decline, can be implemented by specifying time specific values.</p>
-
-      <h3>3.4 Net present value and benefit cost ratio</h3>
-      <p><strong>Net present value (NPV).</strong></p>
-      <p>NPV = −K<sub>0</sub> + Σ<sub>t=0</sub><sup>T−1</sup> NB<sub>farm,t</sub> / (1 + r)<sup>t</sup></p>
-      <p>K<sub>0</sub> is the initial capital cost paid at t = 0.
-        If all capital has already been annualised into NB<sub>farm,t</sub>, K<sub>0</sub> can be set to zero to avoid double counting.</p>
-      <p><strong>Present value of benefits.</strong></p>
-      <p>PV(Benefits) = Σ<sub>t=0</sub><sup>T−1</sup> B<sub>ha</sub> × A<sub>eff</sub> / (1 + r)<sup>t</sup></p>
-      <p><strong>Present value of costs.</strong></p>
-      <p>PV(Costs) = K<sub>0</sub> + Σ<sub>t=0</sub><sup>T−1</sup> (ΔC + K<sub>annual</sub>) × A<sub>eff</sub> / (1 + r)<sup>t</sup></p>
-      <p><strong>Benefit cost ratio (BCR).</strong></p>
-      <p>BCR = PV(Benefits) / PV(Costs)</p>
-      <p>If BCR is greater than 1, the treatment generates more discounted benefits than discounted costs.</p>
-
-      <h3>3.5 Payback period</h3>
-      <p>The payback period is the smallest number of years n for which the cumulative undiscounted net benefits cover the initial capital cost.</p>
-      <p>Find the smallest n such that:</p>
-      <p>Σ<sub>t=0</sub><sup>n</sup> NB<sub>farm,t</sub> ≥ K<sub>0</sub></p>
-      <p>In some cases there may be no payback within the planning horizon.</p>
-    </section>
-
-    <section class="card">
-      <h2>4. Example faba bean dataset</h2>
+      <h3>2.1 Introduction tab</h3>
       <p>
-        The table below shows an example faba bean dataset used for illustrative purposes.
-        Values are hypothetical and can be replaced with real trial data or local farm data.
+        The Introduction tab describes the overall purpose of the tool and explains that the default
+        dataset comes from a faba bean trial. It does not affect any calculations. It is there to
+        orient users and to link the tool to a particular project.
       </p>
 
-      <div class="table-scroll">
-        <table class="summary-table">
+      <h3>2.2 Project tab</h3>
+      <p>
+        The Project tab captures the narrative around the analysis. It has no direct numerical
+        effect on the cost benefit indicators but it is essential for documentation and reporting.
+      </p>
+      <p>
+        Key elements include:
+      </p>
+      <p>
+        Project name, project lead, analyst team, partner organisations, and a short summary
+        describe who is involved and what is being analysed. The project goal and key objectives
+        describe what success looks like. The with project and without project stories set out
+        the change pathway, and the stakeholder groups field documents who gains or loses.
+      </p>
+      <div class="appendix-note">
+        For farmers, a good way to think about this tab is to imagine that you are explaining
+        the trial to a neighbour. If a neighbour can understand the story, the description is
+        clear enough for future readers.
+      </div>
+
+      <h3>2.3 Time and risk settings tab</h3>
+      <p>
+        The Time and risk settings tab defines the time horizon of the analysis, the discount
+        rates, adoption levels, and risk assumptions. These settings drive the present value
+        calculations in the Results and Simulation tabs.
+      </p>
+      <p>
+        Important fields are:
+      </p>
+      <p>
+        The analysis start year is the calendar year that is treated as year 0 in the cash flow.
+        The project start year is when the treatments begin on farm. Years of analysis is the
+        number of years over which costs and benefits are counted. The system type determines
+        whether results are interpreted per farm or across multiple farms.
+      </p>
+      <p>
+        The discount rate fields (low, base, high) are used for present value calculations and for
+        the simulation. The discount schedule by period allows the analyst to vary the low, base,
+        and high discount rates across different future periods, for example 2025 to 2034 and so on.
+      </p>
+      <p>
+        Adoption settings (low, base, high) define the share of the target area that takes up the
+        treatment. For example, an adoption base of 0.4 means that 40 percent of the target area is
+        assumed to adopt at the peak of the adoption curve. These adoption multipliers are used in
+        the Results tab and are also varied in the Simulation tab.
+      </p>
+      <p>
+        The risk settings combine into an overall risk that effective benefits are lower than the
+        expected benefits. The overall risk low, base, and high fields can be entered directly or
+        calculated using the Calculate combined base risk button from component risks such as
+        technical risk, non cooperation risk, social risk, financial risk, and management risk.
+      </p>
+
+      <h3>2.4 Outputs tab</h3>
+      <p>
+        The Outputs tab defines the main physical outputs that matter for the analysis. In a faba
+        bean trial this could include yield per hectare and grain quality premiums. For each output
+        the tool records a label, a unit (for example tonnes per hectare), and a value per unit in
+        AUD. The value per unit is usually a price such as AUD 500 per tonne of grain.
+      </p>
+      <p>
+        The tool then uses treatment level yield differences to compute benefit flows in AUD using
+        the formula:
+      </p>
+      <div class="appendix-math">
+Benefit in AUD = (Output quantity under treatment - Output quantity under control) × Value per unit (AUD)
+      </div>
+
+      <h3>2.5 Treatments tab</h3>
+      <p>
+        The Treatments tab captures each treatment or practice combination. One treatment is flagged
+        as the control using the Control vs treatment field. When you select Control the tool treats
+        that treatment as the baseline case for comparisons.
+      </p>
+      <p>
+        Within each treatment you enter:
+      </p>
+      <p>
+        A clear treatment name and description, the plot or area to which it applies, and any
+        treatment specific labour cost in AUD. The labour cost field captures the value of extra
+        time or effort required by the practice. For example, manual weeding might require
+        additional labour of 4 hours per hectare valued at AUD 30 per hour, for a labour cost of
+        AUD 120 per hectare.
+      </p>
+      <p>
+        Output effects at treatment level, such as the change in yield per hectare relative to the
+        control, are captured through the Outputs tab and treatment records in the model. Adoption
+        is not entered here. Adoption is handled as a scenario setting in the Time and risk settings
+        tab and is varied in the Simulation tab.
+      </p>
+
+      <h3>2.6 Additional benefits tab</h3>
+      <p>
+        The Additional benefits tab is used for benefits that are not directly captured by the
+        primary outputs. For example this can include reduced pest losses, lower fertiliser costs
+        due to improved soil fertility, or improved soil organic matter with a value per hectare.
+      </p>
+      <p>
+        Each additional benefit has a label, a unit and a value per unit in AUD. The tool then
+        calculates a stream of benefits in AUD over the analysis period in the same way as for
+        outputs.
+      </p>
+
+      <h3>2.7 Other project costs tab</h3>
+      <p>
+        The Other project costs tab captures project management and overhead costs that are not
+        specific to a single treatment, such as extension activities, coordination, or monitoring.
+      </p>
+      <p>
+        For each cost item you define:
+      </p>
+      <p>
+        A label, category, timing, and the annual or periodic cost in AUD. If the item is a capital
+        item, such as a piece of equipment, the tab allows you to specify depreciation settings.
+        Depreciation is only applied to items in the capital category. For other categories the
+        depreciation row is not used because these costs are treated as operating costs.
+      </p>
+
+      <h3>2.8 Sources tab</h3>
+      <p>
+        The Sources tab is used to document and tag data sources for outputs and treatments. It does
+        not change any calculations. It helps analysts trace each number back to field notes,
+        articles, or datasets. This is useful when the tool is linked to a shared evidence
+        repository.
+      </p>
+
+      <h3>2.9 Results tab</h3>
+      <p>
+        The Results tab shows the core economic indicators that are commonly used in cost benefit
+        analysis. It reports whole project metrics, a comparison between the control and the combined
+        treatment group, rankings of treatments, net present value by analysis horizon, and a
+        summary of capital item depreciation.
+      </p>
+      <p>
+        The key indicators are:
+      </p>
+      <p>
+        Present value of benefits and costs (PV in AUD), net present value (NPV in AUD),
+        benefit cost ratio (BCR), internal rate of return (IRR), modified internal rate of return
+        (MIRR), return on investment (ROI), payback period in years, annual gross margin, and gross
+        profit margin.
+      </p>
+
+      <h3>2.10 Simulation tab</h3>
+      <p>
+        The Simulation tab runs a Monte Carlo analysis that varies discount rates, adoption,
+        risk, and selected cost and benefit inputs within ranges specified on the Time and risk
+        settings tab. This provides a distribution of possible NPV and BCR outcomes.
+      </p>
+      <p>
+        The tab reports summary statistics such as the minimum, maximum, mean and median NPV and
+        BCR in AUD and unitless ratios, as well as the probability that NPV is greater than zero
+        and the probability that BCR is greater than a target threshold. Distributions can be
+        visualised using histograms of simulated NPV and BCR.
+      </p>
+
+      <h3>2.11 Excel import and export tab</h3>
+      <p>
+        The Excel tab allows users to download a blank template or a sample workbook that reflects
+        the current scenario, edit it in Excel, and import it back into the tool. The sample
+        workbook includes a faba bean raw data sheet so that the example trial can be reproduced
+        and extended.
+      </p>
+      <p>
+        When importing, the tool first parses the workbook and shows whether it can read the
+        structure. Once validated, the user can apply the parsed data to the model.
+      </p>
+
+      <h3>2.12 Policy brief helper tab</h3>
+      <p>
+        The Policy brief helper tab builds a structured summary of the current scenario that can
+        be copied into another assistant to draft a policy note. It includes the project context,
+        key assumptions, economic results in AUD, adoption and risk settings, and key messages.
+      </p>
+      <p>
+        The preview box shows the JSON style payload that is copied when the user clicks the Copy
+        scenario summary button.
+      </p>
+    </section>
+
+    <section class="card appendix-section">
+      <h2>3. Faba bean example dataset and indicator formulas</h2>
+
+      <h3>3.1 Faba bean trial dataset structure</h3>
+      <p>
+        The default dataset in the tool is based on a faba bean soil amendment trial with one
+        control and several treatments. The data are organised per plot, which can be converted
+        to per hectare figures. The table below shows a simplified abstract of the structure used
+        by the tool.
+      </p>
+
+      <div class="appendix-table-wrapper">
+        <table class="appendix-table">
           <thead>
             <tr>
-              <th>Treatment ID</th>
-              <th>Description</th>
-              <th>Yield (kg/ha)</th>
-              <th>Output price (₹/kg)</th>
-              <th>Labour days per ha</th>
-              <th>Wage per day (₹)</th>
-              <th>Other operating cost (₹/ha)</th>
-              <th>Capital cost (₹/ha)</th>
-              <th>Capital life (years)</th>
+              <th>Plot ID</th>
+              <th>Treatment name</th>
+              <th>Control vs treatment</th>
+              <th>Area (ha)</th>
+              <th>Yield (t/ha)</th>
+              <th>Grain price (AUD/t)</th>
+              <th>Gross revenue (AUD/ha)</th>
+              <th>Treatment labour cost (AUD/ha)</th>
+              <th>Additional input cost (AUD/ha)</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td>C0</td>
-              <td>Control. Farmer saved seed. Basic fertiliser.</td>
-              <td>1500</td>
-              <td>40</td>
-              <td>20</td>
-              <td>500</td>
-              <td>3000</td>
+              <td>P1</td>
+              <td>Control</td>
+              <td>Control</td>
+              <td>1.0</td>
+              <td>1.80</td>
+              <td>600</td>
+              <td>1080</td>
               <td>0</td>
               <td>0</td>
             </tr>
             <tr>
-              <td>T1</td>
-              <td>Improved seed and balanced fertiliser.</td>
-              <td>1900</td>
+              <td>P2</td>
+              <td>Gypsum only</td>
+              <td>Treatment</td>
+              <td>1.0</td>
+              <td>2.10</td>
+              <td>600</td>
+              <td>1260</td>
               <td>40</td>
-              <td>23</td>
-              <td>500</td>
-              <td>3500</td>
-              <td>2000</td>
-              <td>5</td>
+              <td>120</td>
             </tr>
             <tr>
-              <td>T2</td>
-              <td>Improved seed, balanced fertiliser, and agronomy support.</td>
-              <td>2100</td>
-              <td>40</td>
-              <td>25</td>
-              <td>500</td>
-              <td>3800</td>
-              <td>2500</td>
-              <td>5</td>
+              <td>P3</td>
+              <td>Gypsum plus lime</td>
+              <td>Treatment</td>
+              <td>1.0</td>
+              <td>2.25</td>
+              <td>600</td>
+              <td>1350</td>
+              <td>55</td>
+              <td>160</td>
+            </tr>
+            <tr>
+              <td>P4</td>
+              <td>Gypsum plus lime plus inoculant</td>
+              <td>Treatment</td>
+              <td>1.0</td>
+              <td>2.40</td>
+              <td>600</td>
+              <td>1440</td>
+              <td>70</td>
+              <td>190</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <p><strong>Labour cost per hectare.</strong></p>
-      <p>For each treatment, labour cost per hectare is:</p>
-      <p>Labour cost = Labour days per ha × Wage per day.</p>
-      <p>For example for T1: Labour cost = 23 × 500 = ₹ 11,500 per hectare.</p>
-
-      <p><strong>Total non capital cost per hectare.</strong></p>
-      <p>C<sub>t</sub> = Labour cost + Other operating cost.</p>
-      <p>For T1: C<sub>t</sub> = 11,500 + 3,500 = ₹ 15,000 per hectare.</p>
-      <p>For the control, labour cost is 20 × 500 = ₹ 10,000 per hectare.
-        Total cost C<sub>c</sub> = 10,000 + 3,000 = ₹ 13,000 per hectare.</p>
-
-      <p><strong>Annualised capital cost per hectare.</strong></p>
-      <p>For T1: K<sub>annual</sub> = 2,000 / 5 = ₹ 400 per hectare per year.</p>
-      <p>For T2: K<sub>annual</sub> = 2,500 / 5 = ₹ 500 per hectare per year.</p>
-    </section>
-
-    <section class="card">
-      <h2>5. Worked example of the calculations</h2>
-      <p>This section provides a full worked example for one comparison: Control (C0) versus Treatment 1 (T1).</p>
-
-      <h3>5.1 Inputs from the dataset</h3>
-      <p>From the example table:</p>
-      <p>Control yield Y<sub>c</sub> = 1500 kg/ha.</p>
-      <p>Treatment yield Y<sub>t</sub> = 1900 kg/ha.</p>
-      <p>Price P = ₹ 40 per kg.</p>
-      <p>Control total non capital cost C<sub>c</sub> = ₹ 13,000 per ha.</p>
-      <p>Treatment total non capital cost C<sub>t</sub> = ₹ 15,000 per ha.</p>
-      <p>Treatment capital cost K = ₹ 2,000 per ha.</p>
-      <p>Capital life L = 5 years, so K<sub>annual</sub> = 400 per ha per year.</p>
-
-      <h3>5.2 Per hectare annual values</h3>
-      <p><strong>Incremental yield.</strong></p>
-      <p>ΔY = 1900 − 1500 = 400 kg/ha.</p>
-      <p><strong>Incremental revenue per hectare.</strong></p>
-      <p>B<sub>ha</sub> = ΔY × P = 400 × 40 = ₹ 16,000 per ha per year.</p>
-      <p><strong>Incremental non capital cost per hectare.</strong></p>
-      <p>ΔC = C<sub>t</sub> − C<sub>c</sub> = 15,000 − 13,000 = ₹ 2,000 per ha per year.</p>
-      <p><strong>Net benefit per hectare per year.</strong></p>
-      <p>NB<sub>ha</sub> = B<sub>ha</sub> − ΔC − K<sub>annual</sub>.</p>
-      <p>NB<sub>ha</sub> = 16,000 − 2,000 − 400 = ₹ 13,600 per ha per year.</p>
-
-      <h3>5.3 Scaling to farm level</h3>
-      <p>Assume:</p>
-      <p>Farm area A = 10 ha.</p>
-      <p>Adoption rate a = 0.6 (60 percent of the area adopts the treatment).</p>
-      <p>Effective area under treatment A<sub>eff</sub> = A × a = 10 × 0.6 = 6 ha.</p>
-      <p>Annual net benefit at farm level:</p>
-      <p>NB<sub>farm,t</sub> = NB<sub>ha</sub> × A<sub>eff</sub> = 13,600 × 6 = ₹ 81,600 per year.</p>
-
-      <h3>5.4 Net present value and BCR</h3>
-      <p>Assume a planning horizon T = 5 years and a discount rate r = 0.1 (10 percent).</p>
-      <p>Initial capital cost at t = 0: K<sub>0</sub> = K × A<sub>eff</sub> = 2,000 × 6 = ₹ 12,000.</p>
-      <p>Annual net benefit NB<sub>farm,t</sub> is assumed constant at ₹ 81,600 per year.</p>
-
-      <p><strong>NPV.</strong></p>
-      <p>NPV = −12,000 + Σ<sub>t=0</sub><sup>4</sup> 81,600 / (1.1)<sup>t</sup>.</p>
-      <p>Year 0: 81,600 / 1 = 81,600.</p>
-      <p>Year 1: 81,600 / 1.1 ≈ 74,182.</p>
-      <p>Year 2: 81,600 / (1.1)<sup>2</sup> ≈ 67,438.</p>
-      <p>Year 3: 81,600 / (1.1)<sup>3</sup> ≈ 61,307.</p>
-      <p>Year 4: 81,600 / (1.1)<sup>4</sup> ≈ 55,733.</p>
-      <p>Sum of discounted net benefits ≈ 81,600 + 74,182 + 67,438 + 61,307 + 55,733 ≈ 340,260.</p>
-      <p>NPV ≈ −12,000 + 340,260 = ₹ 328,260.</p>
-
-      <p><strong>PV of benefits.</strong></p>
-      <p>PV(Benefits) uses B<sub>ha</sub> × A<sub>eff</sub> instead of NB<sub>ha</sub>.</p>
-      <p>B<sub>farm</sub> = 16,000 × 6 = ₹ 96,000 per year.</p>
-      <p>PV(Benefits) = Σ<sub>t=0</sub><sup>4</sup> 96,000 / (1.1)<sup>t</sup> ≈ 96,000 + 87,273 + 79,339 + 72,126 + 65,569 ≈ 400,307.</p>
-
-      <p><strong>PV of costs.</strong></p>
-      <p>Total extra cost per year per ha is ΔC + K<sub>annual</sub> = 2,000 + 400 = 2,400.</p>
-      <p>Per year farm level extra cost is 2,400 × 6 = ₹ 14,400.</p>
-      <p>PV(Costs) = 12,000 + Σ<sub>t=0</sub><sup>4</sup> 14,400 / (1.1)<sup>t</sup>.</p>
-      <p>Discounted annual extra costs: 14,400 + 13,091 + 11,901 + 10,819 + 9,835 ≈ 60,046.</p>
-      <p>PV(Costs) ≈ 12,000 + 60,046 = ₹ 72,046.</p>
-
-      <p><strong>BCR.</strong></p>
-      <p>BCR = PV(Benefits) / PV(Costs) ≈ 400,307 / 72,046 ≈ 5.6.</p>
-      <p>A BCR of about 5.6 means that every rupee of extra cost returns about 5.6 rupees of extra benefit in present value terms.</p>
-
-      <h3>5.5 Payback period</h3>
-      <p>Cumulative undiscounted net benefits:</p>
-      <p>Year 0: 81,600.</p>
-      <p>Year 1: 81,600 + 81,600 = 163,200.</p>
-      <p>Initial capital cost is 12,000.
-        Even in year 0, cumulative net benefits already exceed 12,000, so the payback period is within the first year.</p>
-    </section>
-
-    <section class="card">
-      <h2>6. How each tab uses the data and formulas</h2>
-
-      <h3>6.1 Treatments tab</h3>
-      <p>The Treatments tab stores the core agronomic and cost data for each option.
-        For each treatment you can usually enter:</p>
-      <p>Crop name and treatment name.</p>
-      <p>Expected yield per hectare.</p>
-      <p>Output price per unit.</p>
-      <p>Labour days per hectare and wage per day, which together define labour cost per hectare.</p>
-      <p>Other operating costs per hectare, such as fertiliser, pesticides, and fuel.</p>
-      <p>Any capital cost per hectare, with its useful life in years.</p>
-      <p>When you update a value, the tool automatically recalculates:</p>
-      <p>Labour cost per hectare.</p>
-      <p>Total non capital cost per hectare.</p>
-      <p>Annualised capital cost per hectare.</p>
-      <p>These feed into the incremental benefit and cost calculations in the Simulation and Results tabs.</p>
-
-      <h3>6.2 Costs tab</h3>
-      <p>The Costs tab allows more detailed input of cost items.
-        Capital items include a depreciation row, and there are no depreciation rows for non capital categories.</p>
-      <p>For each capital item you normally specify:</p>
-      <p>Item description.</p>
-      <p>Purchase cost per unit and number of units.</p>
-      <p>Expected useful life in years.</p>
-      <p>Area or number of hectares that the item serves.</p>
-      <p>The tool then computes:</p>
-      <p>Total capital cost K.</p>
-      <p>Annualised capital cost K<sub>annual</sub> using straight line depreciation.</p>
-      <p>Capital cost per hectare by dividing K<sub>annual</sub> by area served.</p>
-      <p>Only capital cost lines include the depreciation logic.
-        Other categories such as seed, fertiliser, pesticides, and fuel are treated as annual operating costs.</p>
-
-      <h3>6.3 Simulation tab</h3>
-      <p>The Simulation tab combines the data from the Treatments and Costs tabs with farm level settings.</p>
-      <p>Key inputs are:</p>
-      <p><strong>Control versus treatment.</strong> A dropdown where you select the treatment to compare against the control.
-        Control is set as the base case, and the selected treatment is the improved option.</p>
-      <p><strong>Farm area (hectares).</strong> The number of hectares on which the crop is grown.</p>
-      <p><strong>Planning horizon (years).</strong> The number of years for which you want to simulate costs and benefits.</p>
-      <p><strong>Discount rate.</strong> The real annual discount rate, entered as a percentage.
-        If you are unsure, you can start with 10 percent and then explore other values.</p>
-      <p><strong>Adoption rate assumptions.</strong> Inputs that control the adoption rate used in the simulation.
-        The adoption rate is used as a sensitivity analysis variable.
-        For example, the tool may allow you to specify a base adoption rate and a low and high case.
-        Each scenario uses the same formulas but with different values of a.</p>
-      <p>When settings are changed, the tool calculates:</p>
-      <p>Per hectare incremental benefits and costs between treatment and control.</p>
-      <p>Farm level annual net benefits based on area and adoption rate.</p>
-      <p>Discounted values over the planning horizon, which feed into NPV and BCR.</p>
-
-      <h3>6.4 Results tab</h3>
-      <p>The Results tab summarises the outputs in a compact format.</p>
-      <p>Typical indicators are:</p>
-      <p><strong>Incremental net benefit per hectare per year.</strong> NB<sub>ha</sub> as defined above.</p>
-      <p><strong>Total incremental net benefit per year at farm level.</strong> NB<sub>farm,t</sub> for each year or as an average.</p>
-      <p><strong>Net present value (NPV).</strong> NPV over the planning horizon at the chosen discount rate.</p>
-      <p><strong>Benefit cost ratio (BCR).</strong> PV(Benefits) divided by PV(Costs).</p>
-      <p><strong>Payback period.</strong> Number of years until cumulative undiscounted net benefits cover the initial investment.</p>
-      <p>These results are directly linked to the formulas in Section 3 and the worked example in Section 5.</p>
-    </section>
-
-    <section class="card">
-      <h2>7. Adapting the tool for other crops and future trials</h2>
-      <p>The tool is designed to be flexible so that it can be reused with other crops, locations, and trial results.</p>
-
-      <h3>7.1 Replacing the dataset</h3>
-      <p>To apply the tool to another crop:</p>
-      <p>Update the crop and treatment names to describe the new practices.</p>
-      <p>Replace the yield and price values with trial or farm data for the new crop.</p>
-      <p>Update labour days, wage rates, and operating costs to reflect local conditions.</p>
-      <p>Update any capital costs that are specific to the new practices, including useful life and area served.</p>
-      <p>The underlying formulas are unchanged, so the Results tab will automatically show the new outcomes.</p>
-
-      <h3>7.2 Extending the structure</h3>
-      <p>Technical users can extend the structure in several ways without changing the core logic.</p>
-      <p>You can add more treatments by adding rows in the Treatments tab.</p>
-      <p>You can add extra cost categories provided they are treated consistently as annual operating costs or capital costs with depreciation.</p>
-      <p>You can implement time varying yields or costs by specifying year specific values and adapting the formulas for NB<sub>ha,t</sub>.</p>
-
-      <h3>7.3 Using the tool in participatory settings</h3>
-      <p>In workshops with farmers or extension workers, the tool can be used in a participatory way.</p>
-      <p>First, present the control and treatment options and check that the description matches the local reality.</p>
-      <p>Second, ask participants to propose yields, costs, and adoption rates that they consider realistic.</p>
-      <p>Third, enter these values into the tool and explore how results change.
-        This helps participants understand which assumptions drive the results and where more evidence is needed.</p>
-    </section>
-
-    <section class="card">
-      <h2>8. Summary</h2>
       <p>
-        The Farming CBA Decision Aid provides a structured way to compare control and treatment practices in farming using cost benefit analysis.
-        It combines simple inputs on yields, prices, labour, operating costs, and capital with standard economic formulas for net benefits, net present value, and benefit cost ratios.
+        In the tool the yield and cost differences between each treatment and the control are used
+        to calculate net benefits per hectare. These are then scaled up using the adoption settings
+        and the number of hectares in the target area.
       </p>
+
+      <h3>3.2 Core indicator definitions and formulas</h3>
+
+      <div class="appendix-two-column">
+        <div>
+          <span class="appendix-badge">Present value (PV)</span>
+          <p>
+            Present value converts a stream of future cash flows into a single value today. The tool
+            calculates the present value of benefits and the present value of costs separately for
+            each scenario using the base discount rate and the defined time horizon.
+          </p>
+        </div>
+        <div>
+          <div class="appendix-math">
+PV of benefits (AUD) = Σ<sub>t=0..T</sub> [ Benefit<sub>t</sub> (AUD) ÷ (1 + r)<sup>t</sup> ]
+PV of costs (AUD)    = Σ<sub>t=0..T</sub> [ Cost<sub>t</sub> (AUD) ÷ (1 + r)<sup>t</sup> ]
+          </div>
+        </div>
+      </div>
+
+      <div class="appendix-two-column">
+        <div>
+          <span class="appendix-badge">Net present value (NPV)</span>
+          <p>
+            NPV is the difference between the present value of benefits and the present value of
+            costs. It is expressed in AUD. A positive NPV means the project adds value at the chosen
+            discount rate.
+          </p>
+        </div>
+        <div>
+          <div class="appendix-math">
+NPV (AUD) = PV of benefits (AUD) - PV of costs (AUD)
+          </div>
+        </div>
+      </div>
+
+      <div class="appendix-two-column">
+        <div>
+          <span class="appendix-badge">Benefit cost ratio (BCR)</span>
+          <p>
+            BCR is the ratio of the present value of benefits to the present value of costs. It is
+            a unitless number. A BCR above 1 indicates that benefits exceed costs.
+          </p>
+        </div>
+        <div>
+          <div class="appendix-math">
+BCR = PV of benefits (AUD) ÷ PV of costs (AUD)
+          </div>
+        </div>
+      </div>
+
+      <div class="appendix-two-column">
+        <div>
+          <span class="appendix-badge">Internal rate of return (IRR)</span>
+          <p>
+            IRR is the discount rate that sets NPV equal to zero. It is expressed as a percentage
+            per year. The tool solves for IRR numerically using the cash flow stream implied by
+            the scenario.
+          </p>
+        </div>
+        <div>
+          <div class="appendix-math">
+Find IRR such that:
+
+0 = Σ<sub>t=0..T</sub> [ Net benefit<sub>t</sub> (AUD) ÷ (1 + IRR)<sup>t</sup> ]
+          </div>
+        </div>
+      </div>
+
+      <div class="appendix-two-column">
+        <div>
+          <span class="appendix-badge">Modified internal rate of return (MIRR)</span>
+          <p>
+            MIRR uses two rates. A finance rate is applied to negative cash flows, and a
+            reinvestment rate is applied to positive cash flows. The tool calculates MIRR using
+            the finance and reinvestment rates entered on the Time and risk settings tab.
+          </p>
+        </div>
+        <div>
+          <div class="appendix-math">
+MIRR = ( FV of positive cash flows at reinvestment rate ÷
+         -PV of negative cash flows at finance rate )<sup>1/T</sup> - 1
+          </div>
+        </div>
+      </div>
+
+      <div class="appendix-two-column">
+        <div>
+          <span class="appendix-badge">Return on investment (ROI)</span>
+          <p>
+            ROI expresses the NPV as a percentage of the present value of costs. It is useful for
+            communicating how much value is created per dollar of cost in present value terms.
+          </p>
+        </div>
+        <div>
+          <div class="appendix-math">
+ROI (percent) = 100 × [ NPV (AUD) ÷ PV of costs (AUD) ]
+          </div>
+        </div>
+      </div>
+
+      <div class="appendix-two-column">
+        <div>
+          <span class="appendix-badge">Payback period</span>
+          <p>
+            The discounted payback period is the earliest year at which the cumulative discounted
+            net benefits turn positive. It is expressed in years from the start of the analysis.
+          </p>
+        </div>
+        <div>
+          <div class="appendix-math">
+Find smallest year τ such that:
+
+Σ<sub>t=0..τ</sub> [ Net benefit<sub>t</sub> (AUD) ÷ (1 + r)<sup>t</sup> ] ≥ 0
+          </div>
+        </div>
+      </div>
+
+      <div class="appendix-two-column">
+        <div>
+          <span class="appendix-badge">Gross margin and profit margin</span>
+          <p>
+            Annual gross margin is average annual benefits minus average annual costs in AUD.
+            Gross profit margin expresses that gross margin as a percentage of benefits.
+          </p>
+        </div>
+        <div>
+          <div class="appendix-math">
+Average annual gross margin (AUD) = (Total benefits (AUD) - Total costs (AUD)) ÷ Years
+
+Gross profit margin (percent) = 100 × [ Average annual gross margin (AUD) ÷
+                                        Average annual benefits (AUD) ]
+          </div>
+        </div>
+      </div>
+
+      <h3>3.3 Risk combination formula</h3>
       <p>
-        Non technical users can focus on entering realistic values and reading the key indicators.
-        Technical users can rely on the explicit formulas in this appendix to verify and extend the tool.
-        The same structure can be applied to many crops and intervention trials, provided that inputs are updated to match the specific context.
+        When you click Calculate combined base risk the tool combines the component risks into a
+        single base risk. A simple multiplicative form is used so that the combined risk reflects
+        the chance that all risk factors line up in a way that reduces benefits.
+      </p>
+      <div class="appendix-math">
+Let rTech, rNonCoop, rSocio, rFin, rMan be the component risks between 0 and 1.
+
+Combined base risk R is:
+
+R = 1 - (1 - rTech) × (1 - rNonCoop) × (1 - rSocio) × (1 - rFin) × (1 - rMan)
+      </div>
+      <p>
+        The overall risk base field is then set to R. This means that if each risk is modest the
+        combined risk is still moderate, but if many risks are high the combined risk increases
+        quickly.
+      </p>
+
+      <h3>3.4 Depreciation for capital items</h3>
+      <p>
+        For capital items the tool applies straight line depreciation over the chosen life. Suppose
+        the capital item has an initial cost of AUD 10,000, a salvage value of AUD 1,000, and a
+        useful life of 9 years.
+      </p>
+      <div class="appendix-math">
+Annual depreciation (AUD) = (Initial cost (AUD) - Salvage value (AUD)) ÷ Useful life (years)
+
+In the example:
+
+Annual depreciation = (10,000 - 1,000) ÷ 9 = AUD 1,000 per year (rounded)
+      </div>
+      <p>
+        The depreciation summary in the Results tab aggregates these annual depreciation flows for
+        all capital items in the scenario.
       </p>
     </section>
-  </main>
+
+    <section class="card appendix-section">
+      <h2>4. Worked faba bean example in AUD (farmer friendly view)</h2>
+
+      <div class="appendix-callout appendix-callout-steps">
+        <strong>Scenario description in plain language</strong>
+        <p>
+          You are a faba bean grower who currently follows a control practice with no soil
+          amendments. You are considering a new treatment that combines gypsum, lime, and an
+          inoculant. You want to know whether the new treatment is worth its extra cost when
+          applied over the next 10 years, expressed in AUD.
+        </p>
+      </div>
+
+      <h3>4.1 Step 1: Set up the project story</h3>
+      <p>
+        On the Project tab enter a short description such as:
+      </p>
+      <p>
+        The project name is Faba bean soil amendment trial. The with project story notes that
+        soil structure improves and yields increase on treated paddocks. The without project story
+        notes that yields stay at current levels and soil constraints remain.
+      </p>
+
+      <h3>4.2 Step 2: Define time horizon and discount rate</h3>
+      <p>
+        On the Time and risk settings tab set:
+      </p>
+      <p>
+        Analysis start year: 2025  
+        Project start year: 2025  
+        Years of analysis: 10  
+        Discount rate (base): 7 percent  
+        Discount rate (low): 4 percent  
+        Discount rate (high): 10 percent
+      </p>
+      <p>
+        This means that the tool will count benefits and costs over 10 years, discount future cash
+        flows at 7 percent per year in the base case, and use 4 and 10 percent in sensitivity and
+        simulation analysis.
+      </p>
+
+      <h3>4.3 Step 3: Enter outputs and values in AUD</h3>
+      <p>
+        On the Outputs tab define a primary output:
+      </p>
+      <p>
+        Output name: Faba bean grain yield  
+        Unit: tonnes per hectare  
+        Value per unit: AUD 600 per tonne
+      </p>
+      <p>
+        This means that an extra 0.2 tonnes per hectare of grain is worth 0.2 × 600 = AUD 120 per
+        hectare in additional revenue.
+      </p>
+
+      <h3>4.4 Step 4: Enter treatments and labour costs in AUD</h3>
+      <p>
+        On the Treatments tab create two treatments:
+      </p>
+      <p>
+        Treatment 1: Control, flagged as Control in the Control vs treatment field.  
+        Treatment 2: Gypsum plus lime plus inoculant, flagged as Treatment.
+      </p>
+      <p>
+        Suppose the trial data show:
+      </p>
+      <p>
+        Yield under control: 1.8 tonnes per hectare.  
+        Yield under treatment: 2.4 tonnes per hectare.
+      </p>
+      <p>
+        The difference is 0.6 tonnes per hectare. At AUD 600 per tonne this is AUD 360 per hectare
+        in extra gross revenue.
+      </p>
+      <p>
+        Now enter the extra labour and input costs for the treatment:
+      </p>
+      <p>
+        Treatment labour cost: AUD 70 per hectare for extra application time.  
+        Additional input cost: AUD 190 per hectare for gypsum, lime, and inoculant materials.
+      </p>
+      <p>
+        The net gain per hectare in year 1 is:
+      </p>
+      <div class="appendix-math">
+Extra revenue (AUD/ha) = 0.6 t/ha × AUD 600/t = AUD 360/ha  
+Total extra cost (AUD/ha) = Labour (70) + Inputs (190) = AUD 260/ha  
+Net benefit (AUD/ha) = 360 - 260 = AUD 100/ha
+      </div>
+
+      <h3>4.5 Step 5: Adoption and target area</h3>
+      <p>
+        On the Time and risk settings tab set adoption multipliers. Suppose your target area is
+        500 hectares of faba bean over time and you expect adoption to reach 40 percent of that
+        area at its peak. Enter:
+      </p>
+      <p>
+        Adoption base: 0.4  
+        Adoption low: 0.2  
+        Adoption high: 0.6
+      </p>
+      <p>
+        In the base case this means that at peak adoption about 200 hectares use the new treatment.
+        If the net benefit is AUD 100 per hectare then the annual net benefit at peak adoption is
+        about AUD 20,000.
+      </p>
+
+      <h3>4.6 Step 6: Risk settings</h3>
+      <p>
+        Suppose you believe there is a 15 percent chance that technical performance is worse than
+        expected, a 10 percent chance that cooperation is low, a 5 percent social risk, a 10 percent
+        financial risk, and a 10 percent management risk.
+      </p>
+      <p>
+        Enter:
+      </p>
+      <p>
+        Technical risk: 0.15  
+        Non cooperation risk: 0.10  
+        Social risk: 0.05  
+        Financial risk: 0.10  
+        Management risk: 0.10
+      </p>
+      <p>
+        Click Calculate combined base risk. The combined risk R is:
+      </p>
+      <div class="appendix-math">
+R = 1 - (1 - 0.15) × (1 - 0.10) × (1 - 0.05) × (1 - 0.10) × (1 - 0.10)
+
+= 1 - (0.85 × 0.90 × 0.95 × 0.90 × 0.90)
+≈ 1 - 0.590 = 0.41 (41 percent)
+      </div>
+      <p>
+        This means that effective benefits are reduced by about 41 percent compared with the ideal
+        case. The tool applies this risk factor to the benefit stream.
+      </p>
+
+      <h3>4.7 Step 7: Reading the results in AUD</h3>
+      <p>
+        After entering these values click Recalculate results on the Results tab. The tool will
+        show:
+      </p>
+      <p>
+        Present value of benefits (AUD) across all years and adopted area.  
+        Present value of costs (AUD) across all years.  
+        Net present value (AUD), which is the difference between the two.  
+        BCR, IRR, MIRR, ROI, and payback period in years.
+      </p>
+      <p>
+        For a farmer the key questions are:
+      </p>
+      <p>
+        Is NPV positive and sizeable in AUD at the chosen discount rate  
+        Is BCR comfortably above 1  
+        Is the payback period short enough given cash flow and risk tolerance  
+      </p>
+      <p>
+        If the answers are yes, the treatment looks attractive in economic terms under the current
+        assumptions.
+      </p>
+
+      <h3>4.8 Step 8: Exploring uncertainty</h3>
+      <p>
+        On the Simulation tab you can set the number of runs, for example 2000, and choose whether
+        to vary outputs, treatment costs, and other project costs. You can also specify a target BCR,
+        for example 2.
+      </p>
+      <p>
+        When you click Run simulation the tool generates distributions of NPV and BCR in AUD and
+        reports:
+      </p>
+      <p>
+        The chance that NPV is greater than zero.  
+        The chance that BCR is greater than 1.  
+        The chance that BCR is greater than the target value.
+      </p>
+      <p>
+        A farmer can interpret these probabilities as the chance that the treatment pays off under
+        the ranges of assumptions chosen in the Time and risk settings tab.
+      </p>
+    </section>
+
+    <section class="card appendix-section">
+      <h2>5. Technical guidance for analysts and future trials</h2>
+
+      <h3>5.1 Data model and units</h3>
+      <p>
+        Internally the tool represents each outcome and cost as a time indexed cash flow in AUD.
+        All project items are converted into streams of net benefits per unit area and then scaled
+        up using the area and adoption patterns. The core unit is AUD per year. Adoption is treated
+        as a multiplier on the maximum potential area or number of units.
+      </p>
+      <p>
+        When adapting the tool to a new trial the main tasks are:
+      </p>
+      <p>
+        Define outputs that match the new production system and assign AUD values per unit.  
+        Define treatments that reflect the new practices, including treatment specific labour
+        costs in AUD and any additional input costs.  
+        Update the Excel template to match the new trial structure if you want to import plot
+        level data.
+      </p>
+
+      <h3>5.2 Treatment labour cost field</h3>
+      <p>
+        The labour cost field in the Treatments tab is treated as an annual cost per hectare (or
+        per unit if a different unit is specified). It is added to other treatment level costs
+        in the benefit cost calculations. Analysts should ensure that labour costs are valued at
+        an appropriate wage rate, expressed in AUD, reflecting the opportunity cost of labour.
+      </p>
+
+      <h3>5.3 Adoption paths and scaling</h3>
+      <p>
+        The tool implements simple adoption paths that scale treatment level net benefits from
+        per hectare to total benefits at project level. Adoption low, base, and high correspond
+        to different adoption trajectories used in the base case and in the simulation.
+      </p>
+      <div class="appendix-math">
+Let Amax be the maximum potential area (ha).  
+Let aBase be the base peak adoption multiplier between 0 and 1.  
+
+Peak adopted area (ha) = Amax × aBase
+
+Annual net benefit (AUD) in year t = Per hectare net benefit (AUD/ha) × Adopted area in year t (ha)
+      </div>
+      <p>
+        Adoption in each year is implemented through a simple ramp up and plateau profile. This
+        can be adapted in the code if more complex adoption curves are needed.
+      </p>
+
+      <h3>5.4 Simulation engine</h3>
+      <p>
+        The Monte Carlo simulation draws random values for the discount rate, adoption multiplier,
+        risk factor, and optionally for specified cost and benefit fields. Each parameter is drawn
+        within its low and high range around the base case value. For example, if the variation
+        size is 20 percent the tool samples values uniformly within plus or minus 20 percent of
+        the base value.
+      </p>
+      <div class="appendix-math">
+Example for a value X (AUD) and variation size v percent:
+
+Lower bound = X × (1 - v/100)  
+Upper bound = X × (1 + v/100)
+
+Sampled value = Uniform(Lower bound, Upper bound)
+      </div>
+      <p>
+        For each simulation run the tool recalculates the full cash flow in AUD and computes NPV
+        and BCR. It then summarises the distribution of these indicators.
+      </p>
+
+      <h3>5.5 Extending the tool to new farming systems</h3>
+      <p>
+        To apply the tool to another crop or region:
+      </p>
+      <p>
+        Update the Project tab to describe the new system.  
+        Define new outputs that represent the main benefits in AUD, for example crop yield,
+        livestock weight gain, or quality premiums.  
+        Create treatments that capture the relevant practices, with appropriate labour and input
+        costs in AUD.  
+        Adjust adoption and risk assumptions on the Time and risk settings tab to match local
+        conditions.  
+        If needed, adjust Excel templates so that analysts can import the new raw datasets.
+      </p>
+      <p>
+        The core economic logic based on AUD remains the same. This means that the tool can be
+        reused for a wide range of trial designs as long as all monetary inputs are expressed
+        consistently in Australian dollars or treated as equivalent units.
+      </p>
+
+      <h3>5.6 Documentation and reproducibility</h3>
+      <p>
+        Analysts are encouraged to use the Sources tab and the Excel import and export features
+        to keep a clear link between field data, assumptions, and the scenario configured in the
+        tool. The Save project (JSON) function in the main tool stores the entire scenario,
+        including all AUD inputs and settings, so that the analysis can be reproduced or audited
+        later.
+      </p>
+
+      <div class="appendix-footer-note">
+        This technical appendix should be kept together with the JSON scenario files and any Excel
+        workbooks used for the analysis so that future users can understand how all numbers in AUD
+        were derived and how the results were calculated.
+      </div>
+    </section>
+  </div>
 </body>
 </html>
