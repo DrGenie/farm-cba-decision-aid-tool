@@ -38,8 +38,8 @@
       <button type="button" class="tab-link" data-tab="results">Results</button>
       <button type="button" class="tab-link" data-tab="simulation">Simulation</button>
       <button type="button" class="tab-link" data-tab="excel">Excel import and export</button>
-      <button type="button" class="tab-link" data-tab="technical-appendix">Technical appendix</button>
       <button type="button" class="tab-link" data-tab="copilot">Policy brief helper</button>
+      <button type="button" class="tab-link" data-tab="appendix">Technical appendix</button>
     </nav>
 
     <!-- INTRO TAB -->
@@ -1000,23 +1000,6 @@
       </div>
     </section>
 
-    <!-- TECHNICAL APPENDIX TAB -->
-    <section class="tab-panel" id="tab-technical-appendix" data-tab-panel="technical-appendix" aria-hidden="true">
-      <div class="card">
-        <h2>Technical appendix and detailed user guide</h2>
-        <p>
-          This tab embeds the full technical appendix in a separate file. Use the scroll bar inside
-          the frame to read the full document. The appendix explains how each tab works, defines all
-          indicators, and shows worked examples using the faba bean dataset.
-        </p>
-        <iframe
-          src="technical-appendix.html"
-          class="appendix-frame"
-          title="Farming CBA Decision Aid technical appendix">
-        </iframe>
-      </div>
-    </section>
-
     <!-- COPILOT TAB -->
     <section class="tab-panel" id="tab-copilot" data-tab-panel="copilot" aria-hidden="true">
       <div class="card">
@@ -1040,6 +1023,41 @@
               Preview of JSON payload
             </label>
             <textarea id="copilotPreview" rows="12" readonly class="mono"></textarea>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TECHNICAL APPENDIX TAB -->
+    <section class="tab-panel" id="tab-appendix" data-tab-panel="appendix" aria-hidden="true">
+      <div class="card">
+        <h2>Technical appendix and user guide</h2>
+        <p>
+          The technical appendix provides a full description of the faba bean example dataset,
+          formulas for all indicators, and step by step guidance for both non technical and
+          technical audiences.
+        </p>
+        <div class="row-2">
+          <div class="field">
+            <button
+              type="button"
+              class="btn primary"
+              onclick="window.open('technical-appendix.html','_blank','noopener');"
+            >
+              Open full technical appendix
+            </button>
+            <p class="small muted">
+              This opens the appendix in a separate browser tab or window so you can read the
+              details while keeping your scenario open here.
+            </p>
+          </div>
+          <div class="field">
+            <label class="small muted">
+              If the button does not work in your browser you can also use this link.
+            </label>
+            <a href="technical-appendix.html" target="_blank" rel="noopener" class="small">
+              Open technical-appendix.html in a new tab
+            </a>
           </div>
         </div>
       </div>
