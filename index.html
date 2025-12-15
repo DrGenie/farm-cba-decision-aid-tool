@@ -38,6 +38,7 @@
       <button type="button" class="tab-link" data-tab="results">Results</button>
       <button type="button" class="tab-link" data-tab="simulation">Simulation</button>
       <button type="button" class="tab-link" data-tab="excel">Excel import and export</button>
+      <button type="button" class="tab-link" data-tab="technical-appendix">Technical appendix</button>
       <button type="button" class="tab-link" data-tab="copilot">Policy brief helper</button>
     </nav>
 
@@ -996,6 +997,23 @@
           Excel import and export features rely on the SheetJS XLSX library loaded in the page. If
           the library is not present, the tool will prompt you.
         </p>
+      </div>
+    </section>
+
+    <!-- TECHNICAL APPENDIX TAB -->
+    <section class="tab-panel" id="tab-technical-appendix" data-tab-panel="technical-appendix" aria-hidden="true">
+      <div class="card">
+        <h2>Technical appendix and detailed user guide</h2>
+        <p>
+          This tab embeds the full technical appendix in a separate file. Use the scroll bar inside
+          the frame to read the full document. The appendix explains how each tab works, defines all
+          indicators, and shows worked examples using the faba bean dataset.
+        </p>
+        <iframe
+          src="technical-appendix.html"
+          class="appendix-frame"
+          title="Farming CBA Decision Aid technical appendix">
+        </iframe>
       </div>
     </section>
 
