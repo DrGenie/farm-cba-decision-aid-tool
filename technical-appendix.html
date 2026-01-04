@@ -1,947 +1,1167 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Technical Appendix - Farming CBA Decision Aid Tool (AUD)</title>
+  <meta charset="utf-8" />
+  <title>Technical Appendix – Faba Beans Trial CBA Decision Aid</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Technical appendix for the Faba Beans Trial Cost Benefit Analysis Decision Aid. Explains data, methods, formulas and practical interpretation for farmers, advisers and analysts." />
   <link rel="stylesheet" href="styles.css" />
+
   <style>
-    .appendix-main {
-      max-width: 1240px;
-      margin: 1.5rem auto 2.5rem;
-      padding: 0 1.25rem 1.5rem;
+    :root {
+      --ta-bg: #f6f9fb;
+      --ta-surface: #ffffff;
+      --ta-border: #d3dce6;
+      --ta-text: #1a2836;
+      --ta-muted: #5d6b7a;
+      --ta-accent: #2f6fbb;
+      --ta-accent-soft: #e2efff;
+      --ta-good: #1b8b3b;
+      --ta-good-soft: #e4f6ea;
+      --ta-risk: #c62828;
+      --ta-risk-soft: #fde4e4;
+      --ta-neutral: #956315;
+      --ta-neutral-soft: #fff5e2;
+      --ta-code-bg: #f1f4f8;
+      --ta-mono: "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      --ta-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
 
-    .appendix-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1.25rem;
-      margin-bottom: 1.25rem;
+    body.ta-appendix {
+      background: radial-gradient(circle at top left, #f3f9ff 0, #f6f9fb 40%, #eef3f8 100%);
+      color: var(--ta-text);
+      font-family: var(--ta-body);
+      line-height: 1.6;
     }
 
-    .appendix-title-block {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
+    .ta-shell {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 3rem;
     }
 
-    .appendix-kicker {
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: var(--color-text-muted);
+    .ta-header {
+      background: linear-gradient(135deg, #153b72, #145a32);
+      border-radius: 1.25rem;
+      padding: 2.25rem 2.25rem 2rem;
+      color: #ffffff;
+      box-shadow: 0 18px 45px rgba(10, 31, 68, 0.35);
+      position: relative;
+      overflow: hidden;
     }
 
-    .appendix-title {
-      font-size: 1.45rem;
-      font-weight: 600;
-      color: #111827;
+    .ta-header::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 10% 20%, rgba(255, 255, 255, 0.15), transparent 55%),
+        radial-gradient(circle at 80% 0, rgba(255, 255, 255, 0.12), transparent 50%);
+      opacity: 0.9;
+      pointer-events: none;
     }
 
-    .appendix-subtitle {
-      font-size: 0.88rem;
-      color: var(--color-text-muted);
-    }
-
-    .appendix-section {
-      margin-bottom: 1.2rem;
-    }
-
-    .appendix-section h2 {
-      font-size: 1.1rem;
-      margin-bottom: 0.4rem;
-    }
-
-    .appendix-section h3 {
-      font-size: 0.98rem;
-      margin-top: 0.7rem;
-      margin-bottom: 0.3rem;
-    }
-
-    .appendix-section p {
-      font-size: 0.9rem;
-      line-height: 1.55;
-      margin: 0 0 0.45rem;
-    }
-
-    .appendix-note {
-      font-size: 0.8rem;
-      color: var(--color-text-muted);
-      border-left: 3px solid var(--color-primary);
-      padding-left: 0.6rem;
-      margin-top: 0.25rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .appendix-callout {
-      border-radius: 12px;
-      border: 1px solid var(--color-border);
-      background: #f9fafb;
-      padding: 0.7rem 0.8rem;
-      margin: 0.4rem 0 0.7rem;
-      font-size: 0.88rem;
-      line-height: 1.5;
-    }
-
-    .appendix-callout-steps p {
-      margin-bottom: 0.25rem;
-    }
-
-    .appendix-table-wrapper {
-      width: 100%;
-      overflow-x: auto;
-      padding-bottom: 0.3rem;
-      margin-top: 0.25rem;
-      margin-bottom: 0.6rem;
-    }
-
-    .appendix-table {
-      width: 100%;
-      min-width: 640px;
-      border-collapse: collapse;
-      font-size: 0.8rem;
-    }
-
-    .appendix-table thead {
-      background: #f1f5f9;
-    }
-
-    .appendix-table th,
-    .appendix-table td {
-      border: 1px solid var(--color-border);
-      padding: 0.35rem 0.5rem;
-      text-align: left;
-    }
-
-    .appendix-table th {
-      font-weight: 600;
-      color: #111827;
-    }
-
-    .appendix-table tbody tr:nth-child(even) {
-      background: #f9fafb;
-    }
-
-    .appendix-math {
-      font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      font-size: 0.82rem;
-      background: #0b1120;
-      color: #e5e7eb;
-      border-radius: 8px;
-      padding: 0.55rem 0.65rem;
-      margin: 0.35rem 0 0.55rem;
-      white-space: pre-wrap;
-    }
-
-    .appendix-two-column {
+    .ta-header-inner {
+      position: relative;
+      z-index: 1;
       display: grid;
-      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-      gap: 0.9rem;
-      margin-top: 0.4rem;
-      margin-bottom: 0.6rem;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr);
+      gap: 2rem;
+      align-items: center;
     }
 
-    .appendix-badge {
+    .ta-badge {
       display: inline-flex;
       align-items: center;
-      padding: 0.1rem 0.55rem;
+      gap: 0.5rem;
+      padding: 0.25rem 0.75rem;
       border-radius: 999px;
+      background: rgba(7, 177, 93, 0.1);
+      border: 1px solid rgba(163, 230, 189, 0.8);
+      font-size: 0.78rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #e9f8ef;
+    }
+
+    .ta-badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #a5f3c7;
+      box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+    }
+
+    .ta-title {
+      font-size: 1.85rem;
+      font-weight: 650;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin: 0.75rem 0 0.5rem;
+    }
+
+    .ta-subtitle {
+      margin: 0;
+      font-size: 0.98rem;
+      max-width: 32rem;
+      color: rgba(243, 244, 246, 0.9);
+    }
+
+    .ta-header-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      font-size: 0.8rem;
+    }
+
+    .ta-stat-card {
+      background: rgba(15, 23, 42, 0.68);
+      border-radius: 0.9rem;
+      padding: 0.75rem 0.9rem;
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      backdrop-filter: blur(8px);
+    }
+
+    .ta-stat-label {
       font-size: 0.75rem;
-      font-weight: 500;
-      background: var(--color-primary-soft);
-      color: var(--color-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(226, 232, 240, 0.9);
       margin-bottom: 0.2rem;
     }
 
-    .appendix-badge-soft {
-      background: #e5e7eb;
-      color: #374151;
+    .ta-stat-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #e5f0ff;
     }
 
-    .appendix-footer-note {
-      font-size: 0.78rem;
-      color: var(--color-text-muted);
-      margin-top: 0.6rem;
+    .ta-chip-row {
+      margin-top: 0.9rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
-    @media (max-width: 900px) {
-      .appendix-two-column {
+    .ta-chip {
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      background: rgba(15, 23, 42, 0.55);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .ta-chip.good {
+      background: rgba(22, 163, 74, 0.18);
+      border-color: rgba(187, 247, 208, 0.9);
+      color: #eafff2;
+    }
+
+    .ta-main {
+      margin-top: 2rem;
+      display: grid;
+      grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.25fr);
+      gap: 1.75rem;
+      align-items: flex-start;
+    }
+
+    @media (max-width: 960px) {
+      .ta-header-inner {
         grid-template-columns: minmax(0, 1fr);
       }
-
-      .appendix-header {
-        flex-direction: column;
-        align-items: flex-start;
+      .ta-main {
+        grid-template-columns: minmax(0, 1fr);
       }
+    }
+
+    .ta-nav {
+      background: var(--ta-surface);
+      border-radius: 1rem;
+      padding: 1.1rem 1.2rem;
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
+      position: sticky;
+      top: 1.5rem;
+    }
+
+    .ta-nav-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--ta-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .ta-nav-section-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--ta-muted);
+      margin-top: 0.6rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .ta-nav-link {
+      display: block;
+      font-size: 0.82rem;
+      padding: 0.3rem 0.2rem;
+      text-decoration: none;
+      color: var(--ta-text);
+      border-radius: 0.35rem;
+      transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
+    }
+
+    .ta-nav-link span {
+      opacity: 0.85;
+    }
+
+    .ta-nav-link:hover {
+      background: var(--ta-accent-soft);
+      color: var(--ta-accent);
+      transform: translateX(2px);
+    }
+
+    .ta-section {
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 1.1rem;
+      padding: 1.4rem 1.6rem 1.6rem;
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+      margin-bottom: 1.4rem;
+    }
+
+    .ta-section:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .ta-section-header {
+      margin-bottom: 0.75rem;
+    }
+
+    .ta-section-kicker {
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      font-size: 0.78rem;
+      color: var(--ta-muted);
+      font-weight: 600;
+      margin-bottom: 0.1rem;
+    }
+
+    .ta-section-title {
+      font-size: 1.15rem;
+      font-weight: 640;
+      margin: 0;
+      color: var(--ta-text);
+    }
+
+    .ta-section-subtitle {
+      margin-top: 0.35rem;
+      font-size: 0.9rem;
+      color: var(--ta-muted);
+    }
+
+    .ta-body p {
+      margin: 0.55rem 0;
+      font-size: 0.92rem;
+      color: var(--ta-text);
+    }
+
+    .ta-body p.lead {
+      font-size: 0.98rem;
+      color: var(--ta-muted);
+      margin-top: 0.2rem;
+      margin-bottom: 0.7rem;
+    }
+
+    .ta-pill-banner {
+      border-radius: 1rem;
+      padding: 0.7rem 0.9rem;
+      font-size: 0.9rem;
+      background: linear-gradient(90deg, rgba(34, 197, 94, 0.1), rgba(59, 130, 246, 0.07));
+      border: 1px solid rgba(74, 222, 128, 0.7);
+      color: #0f5132;
+      margin: 0.5rem 0 0.8rem;
+    }
+
+    .ta-pill-banner strong {
+      font-weight: 650;
+    }
+
+    .ta-note {
+      border-radius: 0.9rem;
+      padding: 0.75rem 0.9rem;
+      font-size: 0.86rem;
+      margin: 0.7rem 0;
+    }
+
+    .ta-note.good {
+      background: var(--ta-good-soft);
+      border: 1px solid rgba(34, 197, 94, 0.6);
+      color: #064e1b;
+    }
+
+    .ta-note.risk {
+      background: var(--ta-risk-soft);
+      border: 1px solid rgba(239, 68, 68, 0.7);
+      color: #7f1d1d;
+    }
+
+    .ta-note.neutral {
+      background: var(--ta-neutral-soft);
+      border: 1px solid rgba(245, 158, 11, 0.6);
+      color: #78350f;
+    }
+
+    .ta-badge-inline {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.08rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: #f8fafc;
+      color: #0f172a;
+      margin-left: 0.25rem;
+      vertical-align: baseline;
+    }
+
+    .ta-badge-inline.good {
+      background: #e4f6ea;
+      border-color: rgba(22, 163, 74, 0.6);
+      color: #065f46;
+    }
+
+    .ta-badge-inline.risk {
+      background: #fde4e4;
+      border-color: rgba(220, 38, 38, 0.7);
+      color: #7f1d1d;
+    }
+
+    .ta-badge-inline.neutral {
+      background: #fff5e2;
+      border-color: rgba(245, 158, 11, 0.8);
+      color: #92400e;
+    }
+
+    .ta-grid-two {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr);
+      gap: 1rem 1.25rem;
+    }
+
+    @media (max-width: 800px) {
+      .ta-grid-two {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .ta-callout {
+      border-radius: 0.9rem;
+      padding: 0.9rem 1rem;
+      background: linear-gradient(135deg, #f8fafc, #eef2ff);
+      border: 1px solid rgba(129, 140, 248, 0.6);
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+
+    .ta-callout strong {
+      font-weight: 650;
+      color: #111827;
+    }
+
+    .ta-table-wrapper {
+      margin: 0.75rem 0;
+      border-radius: 0.9rem;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .ta-table-scroll {
+      width: 100%;
+      overflow-x: auto;
+    }
+
+    table.ta-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      min-width: 640px;
+    }
+
+    table.ta-table th,
+    table.ta-table td {
+      padding: 0.45rem 0.6rem;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    table.ta-table th {
+      background: #f1f5f9;
+      font-weight: 600;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #475569;
+    }
+
+    table.ta-table tr:nth-child(even) td {
+      background: #f9fafb;
+    }
+
+    table.ta-table td.label {
+      font-weight: 500;
+      white-space: nowrap;
+      color: #111827;
+    }
+
+    .ta-figure {
+      border-radius: 0.9rem;
+      padding: 0.85rem 1rem;
+      background: linear-gradient(135deg, #f8fafc, #e0f2fe);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      margin: 0.85rem 0;
+      font-size: 0.9rem;
+    }
+
+    .ta-figure-title {
+      font-weight: 630;
+      margin-bottom: 0.25rem;
+      color: #0f172a;
+    }
+
+    .ta-figure-axes {
+      font-family: var(--ta-mono);
+      font-size: 0.8rem;
+      color: #1e293b;
+      margin-top: 0.1rem;
+    }
+
+    .ta-math {
+      font-family: var(--ta-mono);
+      font-size: 0.86rem;
+      background: var(--ta-code-bg);
+      padding: 0.22rem 0.4rem;
+      border-radius: 0.35rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      white-space: nowrap;
+    }
+
+    .ta-equation-block {
+      font-family: var(--ta-mono);
+      font-size: 0.86rem;
+      background: var(--ta-code-bg);
+      padding: 0.4rem 0.6rem;
+      border-radius: 0.45rem;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      margin: 0.4rem 0 0.6rem;
+      overflow-x: auto;
+    }
+
+    .ta-example-box {
+      border-radius: 0.95rem;
+      padding: 0.9rem 1rem;
+      background: #fefce8;
+      border: 1px solid rgba(245, 158, 11, 0.7);
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+
+    .ta-example-title {
+      font-weight: 640;
+      color: #92400e;
+      margin-bottom: 0.3rem;
+    }
+
+    .ta-example-step {
+      margin: 0.2rem 0;
+    }
+
+    .ta-example-note {
+      margin-top: 0.45rem;
+      font-size: 0.86rem;
+      color: #78350f;
+    }
+
+    .ta-tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.35rem;
+    }
+
+    .ta-tag {
+      font-size: 0.72rem;
+      padding: 0.12rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: #f9fafb;
+      color: #475569;
+    }
+
+    .ta-tag.good {
+      border-color: rgba(22, 163, 74, 0.7);
+      background: #e4f6ea;
+      color: #14532d;
+    }
+
+    .ta-tag.risk {
+      border-color: rgba(220, 38, 38, 0.8);
+      background: #fde4e4;
+      color: #7f1d1d;
+    }
+
+    .ta-footer {
+      margin-top: 2rem;
+      padding-top: 1.2rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.6);
+      font-size: 0.8rem;
+      color: var(--ta-muted);
+    }
+
+    .ta-footer a {
+      color: var(--ta-accent);
+      text-decoration: none;
+    }
+
+    .ta-footer a:hover {
+      text-decoration: underline;
     }
   </style>
 </head>
-<body data-theme="worldbank-light">
-  <div class="appendix-main">
-    <header class="appendix-header">
-      <div class="appendix-title-block">
-        <div class="appendix-kicker">Technical appendix and user guide</div>
-        <div class="appendix-title">Farming CBA Decision Aid Tool</div>
-        <div class="appendix-subtitle">
-          All monetary figures in this appendix are expressed in Australian dollars (AUD).
+<body class="ta-appendix">
+  <div class="ta-shell">
+    <header class="ta-header">
+      <div class="ta-header-inner">
+        <div>
+          <div class="ta-badge">
+            <span class="ta-badge-dot"></span>
+            <span>Faba Beans Trial Cost Benefit Analysis Decision Aid</span>
+          </div>
+          <h1 class="ta-title">Technical Appendix and User Guide</h1>
+          <p class="ta-subtitle">
+            This appendix explains how the decision aid uses the full faba beans field trial dataset to calculate costs and benefits, how each screen works, and how farmers, advisers and analysts can interpret the results with confidence.
+          </p>
+          <div class="ta-chip-row">
+            <span class="ta-chip good">Uses full field dataset, no sampling</span>
+            <span class="ta-chip">Control used as measured in the trial</span>
+            <span class="ta-chip">Farmer friendly and analyst ready</span>
+          </div>
         </div>
-      </div>
-      <div>
-        <a href="index.html" class="btn ghost">Back to main tool</a>
+        <div class="ta-header-stats">
+          <div class="ta-stat-card">
+            <div class="ta-stat-label">Audience</div>
+            <div class="ta-stat-value">Farmers, advisers, policy teams, analysts</div>
+          </div>
+          <div class="ta-stat-card">
+            <div class="ta-stat-label">Core comparison</div>
+            <div class="ta-stat-value">All treatments relative to the measured control</div>
+          </div>
+          <div class="ta-stat-card">
+            <div class="ta-stat-label">Decision focus</div>
+            <div class="ta-stat-value">Net profit, costs, risk and robustness</div>
+          </div>
+          <div class="ta-stat-card">
+            <div class="ta-stat-label">Data source</div>
+            <div class="ta-stat-value">Full faba beans trial dataset, all 48 plots, no rows removed</div>
+          </div>
+        </div>
       </div>
     </header>
 
-    <section class="card appendix-section">
-      <h2>1. Purpose of this appendix</h2>
-      <p>
-        This appendix explains how the Farming Cost Benefit Analysis Decision Aid works. It is written
-        for two audiences. The first audience is farmers and non technical users who want practical
-        guidance on how to use the tool and how to read the results. The second audience is technical
-        users who want to understand the underlying calculations and assumptions.
-      </p>
-      <p>
-        The example in this appendix is a faba bean soil amendment trial. All costs and benefits are
-        presented in Australian dollars (AUD). If you work in another currency you can simply treat
-        every AUD value as your own currency and apply the same logic.
-      </p>
-      <div class="appendix-callout">
-        For quick use, focus on Sections 2 and 4. Section 2 describes how each tab in the tool works.
-        Section 4 gives a worked faba bean example in plain language. Sections 3 and 5 provide
-        technical detail and formulas for analysts and reviewers.
-      </div>
-    </section>
+    <main class="ta-main">
+      <aside class="ta-nav" aria-label="On this page">
+        <div class="ta-nav-title">On this page</div>
 
-    <section class="card appendix-section">
-      <h2>2. How each tab in the tool works</h2>
+        <div class="ta-nav-section-title">Overview</div>
+        <a href="#part-a" class="ta-nav-link"><span>Part A – Plain language guide for farmers and advisers</span></a>
+        <a href="#part-b" class="ta-nav-link"><span>Part B – Technical reference for analysts and researchers</span></a>
 
-      <h3>2.1 Introduction tab</h3>
-      <p>
-        The Introduction tab describes the overall purpose of the tool and explains that the default
-        dataset comes from a faba bean trial. It does not affect any calculations. It is there to
-        orient users and to link the tool to a particular project.
-      </p>
+        <div class="ta-nav-section-title">Tabs in the tool</div>
+        <a href="#tab-intro" class="ta-nav-link"><span>Intro tab</span></a>
+        <a href="#tab-data-checks" class="ta-nav-link"><span>Data and checks tab</span></a>
+        <a href="#tab-settings" class="ta-nav-link"><span>Cost and benefit settings tab</span></a>
+        <a href="#tab-results" class="ta-nav-link"><span>Results tab</span></a>
+        <a href="#tab-sensitivity" class="ta-nav-link"><span>Sensitivity tab</span></a>
+        <a href="#tab-exports" class="ta-nav-link"><span>Exports tab</span></a>
+        <a href="#tab-ai" class="ta-nav-link"><span>AI briefing tab</span></a>
 
-      <h3>2.2 Project tab</h3>
-      <p>
-        The Project tab captures the narrative around the analysis. It has no direct numerical
-        effect on the cost benefit indicators but it is essential for documentation and reporting.
-      </p>
-      <p>
-        Key elements include:
-      </p>
-      <p>
-        Project name, project lead, analyst team, partner organisations, and a short summary
-        describe who is involved and what is being analysed. The project goal and key objectives
-        describe what success looks like. The with project and without project stories set out
-        the change pathway, and the stakeholder groups field documents who gains or loses.
-      </p>
-      <div class="appendix-note">
-        For farmers, a good way to think about this tab is to imagine that you are explaining
-        the trial to a neighbour. If a neighbour can understand the story, the description is
-        clear enough for future readers.
-      </div>
+        <div class="ta-nav-section-title">Methods</div>
+        <a href="#data-structure" class="ta-nav-link"><span>Data structure and columns</span></a>
+        <a href="#control-treatment" class="ta-nav-link"><span>Control treatment and replicates</span></a>
+        <a href="#cba-formulas" class="ta-nav-link"><span>Cost benefit analysis formulas</span></a>
+        <a href="#discounting" class="ta-nav-link"><span>Discounting and time horizon</span></a>
+        <a href="#sensitivity-method" class="ta-nav-link"><span>Price and discount rate sensitivity</span></a>
+        <a href="#worked-example" class="ta-nav-link"><span>Worked numerical example</span></a>
+        <a href="#quality-assurance" class="ta-nav-link"><span>Quality assurance and consistency</span></a>
+      </aside>
 
-      <h3>2.3 Time and risk settings tab</h3>
-      <p>
-        The Time and risk settings tab defines the time horizon of the analysis, the discount
-        rates, adoption levels, and risk assumptions. These settings drive the present value
-        calculations in the Results and Simulation tabs.
-      </p>
-      <p>
-        Important fields are:
-      </p>
-      <p>
-        The analysis start year is the calendar year that is treated as year 0 in the cash flow.
-        The project start year is when the treatments begin on farm. Years of analysis is the
-        number of years over which costs and benefits are counted. The system type determines
-        whether results are interpreted per farm or across multiple farms.
-      </p>
-      <p>
-        The discount rate fields (low, base, high) are used for present value calculations and for
-        the simulation. The discount schedule by period allows the analyst to vary the low, base,
-        and high discount rates across different future periods, for example 2025 to 2034 and so on.
-      </p>
-      <p>
-        Adoption settings (low, base, high) define the share of the target area that takes up the
-        treatment. For example, an adoption base of 0.4 means that 40 percent of the target area is
-        assumed to adopt at the peak of the adoption curve. These adoption multipliers are used in
-        the Results tab and are also varied in the Simulation tab.
-      </p>
-      <p>
-        The risk settings combine into an overall risk that effective benefits are lower than the
-        expected benefits. The overall risk low, base, and high fields can be entered directly or
-        calculated using the Calculate combined base risk button from component risks such as
-        technical risk, non cooperation risk, social risk, financial risk, and management risk.
-      </p>
-
-      <h3>2.4 Outputs tab</h3>
-      <p>
-        The Outputs tab defines the main physical outputs that matter for the analysis. In a faba
-        bean trial this could include yield per hectare and grain quality premiums. For each output
-        the tool records a label, a unit (for example tonnes per hectare), and a value per unit in
-        AUD. The value per unit is usually a price such as AUD 500 per tonne of grain.
-      </p>
-      <p>
-        The tool then uses treatment level yield differences to compute benefit flows in AUD using
-        the formula:
-      </p>
-      <div class="appendix-math">
-Benefit in AUD = (Output quantity under treatment - Output quantity under control) × Value per unit (AUD)
-      </div>
-
-      <h3>2.5 Treatments tab</h3>
-      <p>
-        The Treatments tab captures each treatment or practice combination. One treatment is flagged
-        as the control using the Control vs treatment field. When you select Control the tool treats
-        that treatment as the baseline case for comparisons.
-      </p>
-      <p>
-        Within each treatment you enter:
-      </p>
-      <p>
-        A clear treatment name and description, the plot or area to which it applies, and any
-        treatment specific labour cost in AUD. The labour cost field captures the value of extra
-        time or effort required by the practice. For example, manual weeding might require
-        additional labour of 4 hours per hectare valued at AUD 30 per hour, for a labour cost of
-        AUD 120 per hectare.
-      </p>
-      <p>
-        Output effects at treatment level, such as the change in yield per hectare relative to the
-        control, are captured through the Outputs tab and treatment records in the model. Adoption
-        is not entered here. Adoption is handled as a scenario setting in the Time and risk settings
-        tab and is varied in the Simulation tab.
-      </p>
-
-      <h3>2.6 Additional benefits tab</h3>
-      <p>
-        The Additional benefits tab is used for benefits that are not directly captured by the
-        primary outputs. For example this can include reduced pest losses, lower fertiliser costs
-        due to improved soil fertility, or improved soil organic matter with a value per hectare.
-      </p>
-      <p>
-        Each additional benefit has a label, a unit and a value per unit in AUD. The tool then
-        calculates a stream of benefits in AUD over the analysis period in the same way as for
-        outputs.
-      </p>
-
-      <h3>2.7 Other project costs tab</h3>
-      <p>
-        The Other project costs tab captures project management and overhead costs that are not
-        specific to a single treatment, such as extension activities, coordination, or monitoring.
-      </p>
-      <p>
-        For each cost item you define:
-      </p>
-      <p>
-        A label, category, timing, and the annual or periodic cost in AUD. If the item is a capital
-        item, such as a piece of equipment, the tab allows you to specify depreciation settings.
-        Depreciation is only applied to items in the capital category. For other categories the
-        depreciation row is not used because these costs are treated as operating costs.
-      </p>
-
-      <h3>2.8 Sources tab</h3>
-      <p>
-        The Sources tab is used to document and tag data sources for outputs and treatments. It does
-        not change any calculations. It helps analysts trace each number back to field notes,
-        articles, or datasets. This is useful when the tool is linked to a shared evidence
-        repository.
-      </p>
-
-      <h3>2.9 Results tab</h3>
-      <p>
-        The Results tab shows the core economic indicators that are commonly used in cost benefit
-        analysis. It reports whole project metrics, a comparison between the control and the combined
-        treatment group, rankings of treatments, net present value by analysis horizon, and a
-        summary of capital item depreciation.
-      </p>
-      <p>
-        The key indicators are:
-      </p>
-      <p>
-        Present value of benefits and costs (PV in AUD), net present value (NPV in AUD),
-        benefit cost ratio (BCR), internal rate of return (IRR), modified internal rate of return
-        (MIRR), return on investment (ROI), payback period in years, annual gross margin, and gross
-        profit margin.
-      </p>
-
-      <h3>2.10 Simulation tab</h3>
-      <p>
-        The Simulation tab runs a Monte Carlo analysis that varies discount rates, adoption,
-        risk, and selected cost and benefit inputs within ranges specified on the Time and risk
-        settings tab. This provides a distribution of possible NPV and BCR outcomes.
-      </p>
-      <p>
-        The tab reports summary statistics such as the minimum, maximum, mean and median NPV and
-        BCR in AUD and unitless ratios, as well as the probability that NPV is greater than zero
-        and the probability that BCR is greater than a target threshold. Distributions can be
-        visualised using histograms of simulated NPV and BCR.
-      </p>
-
-      <h3>2.11 Excel import and export tab</h3>
-      <p>
-        The Excel tab allows users to download a blank template or a sample workbook that reflects
-        the current scenario, edit it in Excel, and import it back into the tool. The sample
-        workbook includes a faba bean raw data sheet so that the example trial can be reproduced
-        and extended.
-      </p>
-      <p>
-        When importing, the tool first parses the workbook and shows whether it can read the
-        structure. Once validated, the user can apply the parsed data to the model.
-      </p>
-
-      <h3>2.12 Policy brief helper tab</h3>
-      <p>
-        The Policy brief helper tab builds a structured summary of the current scenario that can
-        be copied into another assistant to draft a policy note. It includes the project context,
-        key assumptions, economic results in AUD, adoption and risk settings, and key messages.
-      </p>
-      <p>
-        The preview box shows the JSON style payload that is copied when the user clicks the Copy
-        scenario summary button.
-      </p>
-    </section>
-
-    <section class="card appendix-section">
-      <h2>3. Faba bean example dataset and indicator formulas</h2>
-
-      <h3>3.1 Faba bean trial dataset structure</h3>
-      <p>
-        The default dataset in the tool is based on a faba bean soil amendment trial with one
-        control and several treatments. The data are organised per plot, which can be converted
-        to per hectare figures. The table below shows a simplified abstract of the structure used
-        by the tool.
-      </p>
-
-      <div class="appendix-table-wrapper">
-        <table class="appendix-table">
-          <thead>
-            <tr>
-              <th>Plot ID</th>
-              <th>Treatment name</th>
-              <th>Control vs treatment</th>
-              <th>Area (ha)</th>
-              <th>Yield (t/ha)</th>
-              <th>Grain price (AUD/t)</th>
-              <th>Gross revenue (AUD/ha)</th>
-              <th>Treatment labour cost (AUD/ha)</th>
-              <th>Additional input cost (AUD/ha)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>P1</td>
-              <td>Control</td>
-              <td>Control</td>
-              <td>1.0</td>
-              <td>1.80</td>
-              <td>600</td>
-              <td>1080</td>
-              <td>0</td>
-              <td>0</td>
-            </tr>
-            <tr>
-              <td>P2</td>
-              <td>Gypsum only</td>
-              <td>Treatment</td>
-              <td>1.0</td>
-              <td>2.10</td>
-              <td>600</td>
-              <td>1260</td>
-              <td>40</td>
-              <td>120</td>
-            </tr>
-            <tr>
-              <td>P3</td>
-              <td>Gypsum plus lime</td>
-              <td>Treatment</td>
-              <td>1.0</td>
-              <td>2.25</td>
-              <td>600</td>
-              <td>1350</td>
-              <td>55</td>
-              <td>160</td>
-            </tr>
-            <tr>
-              <td>P4</td>
-              <td>Gypsum plus lime plus inoculant</td>
-              <td>Treatment</td>
-              <td>1.0</td>
-              <td>2.40</td>
-              <td>600</td>
-              <td>1440</td>
-              <td>70</td>
-              <td>190</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <p>
-        In the tool the yield and cost differences between each treatment and the control are used
-        to calculate net benefits per hectare. These are then scaled up using the adoption settings
-        and the number of hectares in the target area.
-      </p>
-
-      <h3>3.2 Core indicator definitions and formulas</h3>
-
-      <div class="appendix-two-column">
-        <div>
-          <span class="appendix-badge">Present value (PV)</span>
-          <p>
-            Present value converts a stream of future cash flows into a single value today. The tool
-            calculates the present value of benefits and the present value of costs separately for
-            each scenario using the base discount rate and the defined time horizon.
-          </p>
-        </div>
-        <div>
-          <div class="appendix-math">
-PV of benefits (AUD) = Σ<sub>t=0..T</sub> [ Benefit<sub>t</sub> (AUD) ÷ (1 + r)<sup>t</sup> ]
-PV of costs (AUD)    = Σ<sub>t=0..T</sub> [ Cost<sub>t</sub> (AUD) ÷ (1 + r)<sup>t</sup> ]
+      <div>
+        <section class="ta-section" id="part-a">
+          <div class="ta-section-header">
+            <div class="ta-section-kicker">Part A</div>
+            <h2 class="ta-section-title">Plain language guide for farmers and advisers</h2>
+            <p class="ta-section-subtitle">
+              This part focuses on what you see in the tool and how to read it. It does not require any background in economics. The aim is to show clearly which treatments look better or worse than the control and why.
+            </p>
           </div>
-        </div>
-      </div>
+          <div class="ta-body">
+            <p class="lead">
+              The tool uses the real faba beans field trial data. Nothing is simulated and no rows are dropped. The control plots in the trial are used as the baseline. Every other treatment is compared directly with this measured control.
+            </p>
 
-      <div class="appendix-two-column">
-        <div>
-          <span class="appendix-badge">Net present value (NPV)</span>
-          <p>
-            NPV is the difference between the present value of benefits and the present value of
-            costs. It is expressed in AUD. A positive NPV means the project adds value at the chosen
-            discount rate.
-          </p>
-        </div>
-        <div>
-          <div class="appendix-math">
-NPV (AUD) = PV of benefits (AUD) - PV of costs (AUD)
+            <div class="ta-pill-banner">
+              <strong>Key message.</strong> The most important outputs are net profit over time, total costs over time and the difference between each treatment and the control. Green shading marks treatments that look better than the control in money terms. Red shading marks treatments that look worse.
+            </div>
+
+            <div class="ta-grid-two">
+              <div>
+                <h3 id="tab-intro">Intro tab – welcome and story of the data</h3>
+                <p>
+                  The Intro tab welcomes you and explains the purpose of the tool. It reminds you that the tool is built on a real field trial of faba beans where different soil and nutrient treatments were tested against a measured control.
+                </p>
+                <p>
+                  The text explains in everyday language what the tool will help you answer. For example, you can see which treatment gives more yield than the control, which treatment costs more, and which option provides higher net profit over the full time horizon that you select.
+                </p>
+                <p>
+                  The Intro tab also explains that the data are already loaded when you open the tool. You do not need to upload anything to start exploring. You can still upload your own trial dataset later if you wish.
+                </p>
+              </div>
+              <div>
+                <h3 id="tab-data-checks">Data and checks tab – what is in the dataset</h3>
+                <p>
+                  The Data and checks tab shows a summary of the trial dataset. Each row in the trial represents a single plot in the field, with information such as the treatment name, whether it is the control, the replicate number, the plot area, the yield, the costs of treatments and machinery uses, and the total cost per hectare.
+                </p>
+                <p>
+                  The top of the tab explains that the tool always uses the full dataset. Rows are not removed. If any values are missing, the tool flags them here and explains how they are handled. For example, a missing cost figure is never treated as zero. It is recorded as missing and the tool tells you when that affects a calculation.
+                </p>
+                <p>
+                  A small summary panel lists checks such as the number of plots, the number of distinct treatments, the number of replicates, and how many plots are flagged as control. If anything looks unusual, for example if no control is found, the summary highlights that issue in red so that you can investigate.
+                </p>
+                <div class="ta-note good">
+                  The control flag in the data is used exactly as recorded in the trial. If a row is labelled as control in the dataset, the tool treats it as the baseline for its replicate.
+                </div>
+              </div>
+            </div>
+
+            <div class="ta-grid-two">
+              <div>
+                <h3 id="tab-settings">Cost and benefit settings tab – prices and assumptions</h3>
+                <p>
+                  The Cost and benefit settings tab lets you control the economic assumptions that sit on top of the field trial data. You can enter or adjust values such as the grain price, the time horizon in years, and discount rates that reflect how you value money today compared with money in the future.
+                </p>
+                <p>
+                  Short explanations next to each input describe what it means. For example, the grain price field explains that it is the farm gate price per tonne of faba beans. The time horizon input explains how long you expect benefits and costs from this treatment to continue on the farm. Discount rate inputs explain that higher discount rates place less weight on future returns.
+                </p>
+                <div class="ta-note neutral">
+                  When you change any setting, the tool immediately recalculates all results in the background. There is no need to press a separate run button. The results tables and charts update as you type.
+                </div>
+              </div>
+              <div>
+                <h3 id="tab-results">Results tab – comparison with the control</h3>
+                <p>
+                  The Results tab is the main decision screen. It opens by default once the data are loaded. At the top you see a leaderboard that lists each treatment, its ranking and its net profit over time relative to the control.
+                </p>
+                <p>
+                  Below the leaderboard you see the Comparison to control table. Each row is a clear indicator such as total benefits over time, total costs over time, net profit over time, benefit per dollar spent and return on investment. Each column represents the control or a treatment. For every treatment, the table also shows how much more or less net profit it delivers compared with the control and how much more or less it costs.
+                </p>
+                <p>
+                  The control column is always visible on the left. Treatments with higher net profit than the control are highlighted in green. Treatments that perform worse than the control in net profit terms are highlighted in red. This lets you see at a glance which options look promising.
+                </p>
+                <div class="ta-figure">
+                  <div class="ta-figure-title">Figure style on the Results tab</div>
+                  <p>
+                    The main chart on the Results tab is a bar chart that shows net profit over time for each treatment relative to the control. Bars above the horizontal line show positive gains. Bars below the line show losses. Green bars show higher net profit than the control. Red bars show lower net profit.
+                  </p>
+                  <div class="ta-figure-axes">
+                    Horizontal axis: treatment. Vertical axis: difference in net profit compared with the control (currency per hectare).
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ta-grid-two">
+              <div>
+                <h3 id="tab-sensitivity">Sensitivity tab – what if prices or rates change</h3>
+                <p>
+                  The Sensitivity tab answers what if questions. It shows how the ranking of treatments changes when grain prices, discount rates or the persistence of benefits change. For example, you can see whether a treatment that looks attractive at a high grain price remains attractive if prices fall.
+                </p>
+                <p>
+                  The tab explains in text that the tool creates a grid of scenarios where it varies one assumption at a time and sometimes several together. For each scenario the tool recalculates net profit, costs and benefit to cost ratio for every treatment. A summary chart highlights treatments that remain better than the control under many scenarios in green and treatments that are only attractive in a narrow range in amber or red.
+                </p>
+              </div>
+              <div>
+                <h3 id="tab-exports">Exports tab – saving your scenario</h3>
+                <p>
+                  The Exports tab allows you to save the numbers behind your decisions. It offers several export options. First, you can download the cleaned dataset that the tool uses after it has checked and harmonised the trial data. Second, you can export treatment summaries that list yields, costs, and economic indicators per treatment. Third, you can export the full sensitivity grid so that you or your adviser can explore the numbers further in a spreadsheet.
+                </p>
+                <p>
+                  The text on the tab reminds you which export is best suited for which task. For example, the cleaned dataset is helpful if you want to run your own analysis. The treatment summary sheet is useful for printing and discussing with a grower group. The sensitivity grid is valuable for presentations or policy analysis.
+                </p>
+              </div>
+            </div>
+
+            <div class="ta-grid-two">
+              <div>
+                <h3 id="tab-ai">AI briefing tab – preparing a narrative</h3>
+                <p>
+                  The AI briefing tab prepares a plain text summary of your chosen scenario so that you can paste it into an external assistant and request a narrative report. The text describes the data source, the control, the top ranked treatments, and the most important sensitivity results. It avoids jargon, symbols and abbreviations so that the narrative can be easily reused in farmer newsletters, policy briefs or project reports.
+                </p>
+                <p>
+                  The tab includes a single copy button that selects the full prompt. You can then paste this text into the assistant of your choice. No data are sent anywhere from within this tool itself. All copying happens in your own browser.
+                </p>
+              </div>
+              <div>
+                <h3>How to read colours and warnings</h3>
+                <p>
+                  Throughout the tool a consistent colour language is used. Green shades indicate improvements compared with the control, such as higher net profit or lower cost. Red shades alert you to results that are worse than the control. Amber or neutral shades highlight mixed results or areas where assumptions matter a lot.
+                </p>
+                <p>
+                  Text banners at the top of each tab explain what you are seeing. If the tool detects unusual situations, such as missing values or more than one control per replicate, a warning banner in red appears with a short explanation of what this means for your decisions.
+                </p>
+                <div class="ta-note risk">
+                  If you see a red warning about missing cost data or unusual control patterns, treat the economic results for those treatments as uncertain until the underlying data have been checked.
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div class="appendix-two-column">
-        <div>
-          <span class="appendix-badge">Benefit cost ratio (BCR)</span>
-          <p>
-            BCR is the ratio of the present value of benefits to the present value of costs. It is
-            a unitless number. A BCR above 1 indicates that benefits exceed costs.
-          </p>
-        </div>
-        <div>
-          <div class="appendix-math">
-BCR = PV of benefits (AUD) ÷ PV of costs (AUD)
+        <section class="ta-section" id="part-b">
+          <div class="ta-section-header">
+            <div class="ta-section-kicker">Part B</div>
+            <h2 class="ta-section-title">Technical reference for analysts and researchers</h2>
+            <p class="ta-section-subtitle">
+              This part documents the data structure, mapping rules, cost and benefit formulas, discounting, sensitivity analysis and export formats. It is intended for agronomists, economists, data scientists and policy analysts who wish to audit or extend the tool.
+            </p>
           </div>
-        </div>
-      </div>
+          <div class="ta-body">
+            <p class="lead">
+              The decision aid is a thin analytical layer on top of the faba beans trial dataset. It does not resample, impute or delete rows. Instead it performs a transparent sequence of steps: data ingestion and validation, mapping of key columns, replicate specific control baselines, construction of cost and benefit streams, discounting, aggregation by treatment and scenario based sensitivity analysis.
+            </p>
 
-      <div class="appendix-two-column">
-        <div>
-          <span class="appendix-badge">Internal rate of return (IRR)</span>
-          <p>
-            IRR is the discount rate that sets NPV equal to zero. It is expressed as a percentage
-            per year. The tool solves for IRR numerically using the cash flow stream implied by
-            the scenario.
-          </p>
-        </div>
-        <div>
-          <div class="appendix-math">
-Find IRR such that:
+            <div class="ta-callout">
+              <strong>Important principle.</strong> Every number in the Results tab can be traced back to three elements. First, a set of rows in the original dataset, grouped by replicate and treatment. Second, a set of cost and benefit formulas applied consistently to those rows. Third, the user controlled assumptions on prices, time horizon and discount rates.
+            </div>
 
-0 = Σ<sub>t=0..T</sub> [ Net benefit<sub>t</sub> (AUD) ÷ (1 + IRR)<sup>t</sup> ]
+            <h3 id="data-structure">1. Data structure and column mapping</h3>
+            <p>
+              The tool expects a wide trial dataset where each row represents a single plot. The faba beans dataset supplied to the tool follows this structure. Plot area is constant at fifty square metres. The key columns used by the analysis are summarised here.
+            </p>
+
+            <div class="ta-table-wrapper">
+              <div class="ta-table-scroll">
+                <table class="ta-table">
+                  <thead>
+                    <tr>
+                      <th>Purpose</th>
+                      <th>Column name in dataset</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="label">Plot identifier</td>
+                      <td>plot_id</td>
+                      <td>Unique identifier for each physical plot in the field trial.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Treatment identifier</td>
+                      <td>treatment_id</td>
+                      <td>Numeric code for the treatment applied, shared by plots that receive the same treatment across replicates.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Replicate</td>
+                      <td>replicate_id</td>
+                      <td>Block or replicate number in the trial design. The tool uses this to compute replicate specific control means.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Treatment name</td>
+                      <td>treatment_name</td>
+                      <td>Human readable label such as Control, Deep OM, Deep OM plus gypsum and similar descriptions used in the user interface.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Control flag</td>
+                      <td>is_control</td>
+                      <td>Logical column where TRUE marks plots that form the control within their replicate. FALSE marks all other treatments.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Yield</td>
+                      <td>yield_t_ha</td>
+                      <td>Grain yield per hectare in tonnes, already scaled by plot area within the dataset.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Total cost per hectare</td>
+                      <td>total_cost_per_ha</td>
+                      <td>Total cost of all operations and amendments for that treatment and plot, expressed per hectare.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Amendment cost per hectare</td>
+                      <td>cost_amendment_input_per_ha</td>
+                      <td>Cost of the amendment inputs themselves, separate from machinery and labour. Used when distinguishing once off capital like costs and recurrent variable costs.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Raw cost per hectare</td>
+                      <td>total_cost_per_ha_raw</td>
+                      <td>Raw total cost per hectare from the detailed calculations of machinery and labour. Used in consistency checks and, where relevant, in reconciling cost fields.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Control yield per replicate</td>
+                      <td>control_yield_t_ha</td>
+                      <td>Control yield per hectare within the same replicate, as provided in the dataset. Used for cross checks.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Control cost per replicate</td>
+                      <td>control_total_cost_per_ha</td>
+                      <td>Control total cost per hectare within the same replicate, as provided in the dataset. Used for cross checks.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Yield difference relative to control</td>
+                      <td>delta_yield_t_ha</td>
+                      <td>Difference in yield between the treatment plot and its control plot within the same replicate.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Cost difference relative to control</td>
+                      <td>delta_cost_per_ha</td>
+                      <td>Difference in total cost per hectare between the treatment plot and its control plot in the same replicate.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <p>
+              Many additional columns in the dataset hold detailed cost components for amendments, herbicides, fungicides, insecticides, machinery and labour. The tool uses these components for diagnostics and for constructing variable versus capital type costs when the user requests this level of detail.
+            </p>
+
+            <h3 id="control-treatment">2. Control treatment and replicate specific baselines</h3>
+            <p>
+              The trial is arranged as a randomised block design with several replicates. Within each replicate certain plots are marked as control using the is_control column and the treatment_name field. The decision aid uses the following logic.
+            </p>
+
+            <p>
+              First, for each replicate r the tool identifies all rows where is_control is TRUE. These rows define the control baseline for that replicate. In a well formed dataset there should be at least one control plot per replicate. If more than one control plot exists in a replicate, the tool treats them as repeated measures and averages their yields and costs.
+            </p>
+
+            <p>
+              Second, for every non control treatment t in replicate r the tool computes the difference in yield and cost relative to that replicate specific control. These differences are stored as delta_yield_t_ha and delta_cost_per_ha, either using the supplied columns or recalculated from yield_t_ha and total_cost_per_ha during validation.
+            </p>
+
+            <p>
+              Third, when results are aggregated by treatment across replicates, the tool works with these replicate specific differences. This approach ensures that field variability that affects both the control and the treatment in a given block is largely differenced out.
+            </p>
+
+            <div class="ta-example-box">
+              <div class="ta-example-title">Example A – replicate specific control</div>
+              <p class="ta-example-step">
+                Suppose replicate 1 contains one control plot and three treatment plots. The control has yield 6.2 tonnes per hectare and total cost 695 currency units per hectare. Treatment A in the same replicate has yield 7.0 tonnes per hectare and total cost 884 currency units per hectare.
+              </p>
+              <p class="ta-example-step">
+                For replicate 1 and treatment A the tool records a yield difference of 0.8 tonnes per hectare and a cost difference of 189 currency units per hectare. When treatment A is aggregated across replicates, these replicate specific differences are averaged.
+              </p>
+              <p class="ta-example-note">
+                This design respects the original trial structure and avoids comparing a treatment in one replicate directly with a control in another replicate without adjustment.
+              </p>
+            </div>
+
+            <h3 id="cba-formulas">3. Cost and benefit formulas</h3>
+            <p>
+              The tool calculates several economic indicators for each treatment and for the control. All calculations are done on a per hectare basis and use the same formulas for every treatment. Let Y denote yield in tonnes per hectare, P denote grain price in currency per tonne, V denote annual variable costs per hectare and C denote once off capital type costs per hectare that occur in year zero.
+            </p>
+
+            <p>
+              Annual gross benefit per hectare is defined as:
+            </p>
+            <div class="ta-equation-block">
+              Annual benefit = Y × P
+            </div>
+
+            <p>
+              Annual net cash flow, before discounting, is the difference between annual benefits and annual variable costs.
+            </p>
+            <div class="ta-equation-block">
+              Annual net cash flow = Y × P − V
+            </div>
+
+            <p>
+              The present value of a stream of equal annual amounts over N years with discount rate r uses the standard annuity factor:
+            </p>
+            <div class="ta-equation-block">
+              Annuity factor AF(r, N) = (1 − (1 + r)<sup>−N</sup>) / r
+            </div>
+
+            <p>
+              The tool multiplies annual benefit and annual variable cost by the annuity factor to obtain present values:
+            </p>
+            <div class="ta-equation-block">
+              Present value of benefits PV<sub>B</sub> = (Y × P) × AF(r, N)
+            </div>
+            <div class="ta-equation-block">
+              Present value of variable costs PV<sub>V</sub> = V × AF(r, N)
+            </div>
+
+            <p>
+              The present value of capital costs PV<sub>C0</sub> equals C, since these costs occur in year zero and are not discounted further. Total present value of costs is:
+            </p>
+            <div class="ta-equation-block">
+              Total present value of costs PV<sub>C</sub> = PV<sub>V</sub> + PV<sub>C0</sub>
+            </div>
+
+            <p>
+              The core economic indicators reported in the Results tab follow directly.
+            </p>
+            <div class="ta-equation-block">
+              Net present value NPV = PV<sub>B</sub> − PV<sub>C</sub>
+            </div>
+            <div class="ta-equation-block">
+              Benefit to cost ratio BCR = PV<sub>B</sub> / PV<sub>C</sub> (if PV<sub>C</sub> is positive)
+            </div>
+            <div class="ta-equation-block">
+              Return on investment ROI = NPV / PV<sub>C</sub> (if PV<sub>C</sub> is positive)
+            </div>
+
+            <p>
+              Differences relative to the control are calculated by subtracting the control values from the treatment values. For example, for a treatment T and the control C:
+            </p>
+            <div class="ta-equation-block">
+              Difference in net present value versus control ΔNPV = NPV<sub>T</sub> − NPV<sub>C</sub>
+            </div>
+            <div class="ta-equation-block">
+              Difference in total cost versus control ΔPV<sub>C</sub> = PV<sub>C,T</sub> − PV<sub>C,C</sub>
+            </div>
+
+            <p>
+              The Results table displays these differences as absolute values and, where appropriate, as percentages relative to the control.
+            </p>
+
+            <h3 id="discounting">4. Discounting and time horizon</h3>
+            <p>
+              The tool supports a flexible approach to discounting. At its simplest it uses a single base discount rate r over N years with the annuity factor defined earlier. For more advanced use the tool can work with a schedule of discount rates over time, such as one set of rates for an initial decade and another set for later years.
+            </p>
+
+            <p>
+              In the discount schedule mode the time horizon is divided into segments. For each segment s with years from t<sub>s</sub> to T<sub>s</sub> and segment specific discount rate r<sub>s</sub>, the tool computes a partial annuity factor for that segment and adds the contributions. This preserves present value calculations while reflecting possible changes in discount rates over the project life.
+            </p>
+
+            <div class="ta-note neutral">
+              When the user selects a simple single rate mode, the tool sets the schedule to one segment and AF(r, N) reduces to the standard annuity factor. When the user selects a schedule, the base results use the base rate in each segment, while the sensitivity tab explores low and high rates around these base values.
+            </div>
+
+            <h3 id="sensitivity-method">5. Sensitivity analysis method</h3>
+            <p>
+              The Sensitivity tab builds a grid of alternative scenarios. Each scenario is defined by a set of values for grain price, discount rate, time horizon and, where relevant, a persistence parameter that reflects how long treatment benefits are expected to persist before they fade.
+            </p>
+
+            <p>
+              For each scenario s and each treatment k the tool recomputes PV<sub>B</sub>, PV<sub>C</sub>, NPV, BCR and ROI using the formulas above with scenario specific parameters. It then derives differences versus the control for that scenario. The sensitivity grid therefore has one row per scenario per treatment and holds a full set of indicators.
+            </p>
+
+            <div class="ta-table-wrapper">
+              <div class="ta-table-scroll">
+                <table class="ta-table">
+                  <thead>
+                    <tr>
+                      <th>Field in sensitivity grid</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="label">scenario_id</td>
+                      <td>Identifier for the scenario, used in exports.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">scenario_label</td>
+                      <td>Human readable label such as High price low rate or Low price high rate.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">grain_price</td>
+                      <td>Scenario specific grain price used in PV<sub>B</sub>.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">discount_rate</td>
+                      <td>Scenario specific discount rate used in the annuity factor calculation.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">horizon_years</td>
+                      <td>Scenario specific time horizon in years.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">treatment_name</td>
+                      <td>Name of the treatment for this row.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">npv</td>
+                      <td>Net present value for this treatment under this scenario.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">delta_npv_vs_control</td>
+                      <td>Difference between the treatment and control NPV in this scenario.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">bcr</td>
+                      <td>Benefit to cost ratio for this treatment and scenario.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">roi</td>
+                      <td>Return on investment for this treatment and scenario.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">rank_in_scenario</td>
+                      <td>Ranking of the treatment within the scenario, based on NPV or a user chosen indicator.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <h3 id="worked-example">6. Worked numerical example</h3>
+            <p>
+              This example illustrates how the tool converts trial data and user settings into the indicators shown in the Results tab. Values are chosen for clarity rather than to match any single row in the dataset.
+            </p>
+
+            <div class="ta-example-box">
+              <div class="ta-example-title">Example B – from trial data to net present value</div>
+              <p class="ta-example-step">
+                Consider a single replicate. The control treatment has yield Y<sub>C</sub> equal to 2.0 tonnes per hectare and total cost C<sub>C</sub> equal to 200 currency units per hectare. A treatment A in the same replicate has yield Y<sub>A</sub> equal to 2.5 tonnes per hectare and cost C<sub>A</sub> equal to 260 currency units per hectare. Assume all costs are variable for simplicity.
+              </p>
+              <p class="ta-example-step">
+                Suppose the user selects a grain price P equal to 400 currency units per tonne, a time horizon N equal to 10 years and a discount rate r equal to 0.04.
+              </p>
+              <p class="ta-example-step">
+                First compute the annuity factor:
+              </p>
+              <div class="ta-equation-block">
+                AF(0.04, 10) = (1 − (1.04)<sup>−10</sup>) / 0.04 ≈ 8.11
+              </div>
+              <p class="ta-example-step">
+                Second compute present value of benefits for the control:
+              </p>
+              <div class="ta-equation-block">
+                PV<sub>B,C</sub> = (2.0 × 400) × 8.11 ≈ 6,489
+              </div>
+              <p class="ta-example-step">
+                Third compute present value of costs for the control:
+              </p>
+              <div class="ta-equation-block">
+                PV<sub>C,C</sub> = 200 × 8.11 ≈ 1,622
+              </div>
+              <p class="ta-example-step">
+                Therefore net present value for the control is:
+              </p>
+              <div class="ta-equation-block">
+                NPV<sub>C</sub> = 6,489 − 1,622 ≈ 4,867
+              </div>
+              <p class="ta-example-step">
+                For treatment A, present value of benefits is:
+              </p>
+              <div class="ta-equation-block">
+                PV<sub>B,A</sub> = (2.5 × 400) × 8.11 ≈ 8,111
+              </div>
+              <p class="ta-example-step">
+                Present value of costs is:
+              </p>
+              <div class="ta-equation-block">
+                PV<sub>C,A</sub> = 260 × 8.11 ≈ 2,409
+              </div>
+              <p class="ta-example-step">
+                Net present value for treatment A is:
+              </p>
+              <div class="ta-equation-block">
+                NPV<sub>A</sub> = 8,111 − 2,409 ≈ 5,702
+              </div>
+              <p class="ta-example-step">
+                The difference in net present value compared with the control is:
+              </p>
+              <div class="ta-equation-block">
+                ΔNPV = NPV<sub>A</sub> − NPV<sub>C</sub> ≈ 5,702 − 4,867 ≈ 835
+              </div>
+              <p class="ta-example-step">
+                In the Results table this would appear as a positive net profit difference of about 835 currency units per hectare for treatment A relative to the control. The bar in the Results chart for treatment A would extend upward into the green region by this amount.
+              </p>
+              <p class="ta-example-note">
+                If some portion of the cost for treatment A was a once off capital cost, that portion would enter as C and would not be multiplied by the annuity factor. The remaining variable component would still be spread across the horizon using the annuity factor.
+              </p>
+            </div>
+
+            <h3 id="quality-assurance">7. Quality assurance and internal consistency</h3>
+            <p>
+              To maintain transparency the tool implements several internal checks, reported in the Data and checks tab and in the summary banner of the Results tab.
+            </p>
+
+            <div class="ta-table-wrapper">
+              <div class="ta-table-scroll">
+                <table class="ta-table">
+                  <thead>
+                    <tr>
+                      <th>Check</th>
+                      <th>Logic</th>
+                      <th>How it is reported</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="label">Control presence</td>
+                      <td>For each replicate the tool checks whether at least one plot has is_control equal to TRUE. If none is found, that replicate is flagged.</td>
+                      <td>Red warning with the count of affected replicates. Treatments in those replicates are marked as uncertain in the results.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Cost reconciliation</td>
+                      <td>The tool compares total_cost_per_ha with total_cost_per_ha_raw where both are present. Large differences are flagged.</td>
+                      <td>Amber notice in the Data and checks tab describing how many rows differ and suggesting that analysts inspect the original costing logic.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Missing values</td>
+                      <td>The tool counts missing values in key fields such as yield_t_ha and total_cost_per_ha. Missing entries are not replaced with zeros.</td>
+                      <td>Summary counts in the Data and checks tab and a short note in the Results tab describing how missing values may reduce the number of plots used in some averages.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Treatment naming</td>
+                      <td>Distinct values of treatment_name and treatment_id are compared. If the mapping is not one to one, this is reported.</td>
+                      <td>Neutral note suggesting that analysts confirm the treatment labels before exporting or presenting results.</td>
+                    </tr>
+                    <tr>
+                      <td class="label">Scenario alignment</td>
+                      <td>The tool ensures that the same price and discount settings are used consistently across the Results and Sensitivity tabs.</td>
+                      <td>Quiet check, but in case of misalignment the scenario label in the Sensitivity tab is updated and a brief note appears in the Results header.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="ta-note good">
+              When analysts export the cleaned dataset and sensitivity grid they receive the exact numbers used to populate the comparison tables and charts, so independent replication of the results in a statistical or spreadsheet package is straightforward.
+            </div>
+
+            <h3>8. Relationship between the main tool and this technical appendix</h3>
+            <p>
+              This technical appendix is designed to make the decision aid self documenting. Farmers and advisers can rely on Part A for practical guidance. Analysts and policy teams can consult Part B to understand the underlying methods and to verify that the calculations match their own standards.
+            </p>
+            <p>
+              The calculations described here match those implemented in the tool. If any future version of the tool changes core formulas, discounting logic or data mapping, this technical appendix should be updated at the same time to preserve alignment.
+            </p>
           </div>
-        </div>
-      </div>
+        </section>
 
-      <div class="appendix-two-column">
-        <div>
-          <span class="appendix-badge">Modified internal rate of return (MIRR)</span>
+        <footer class="ta-footer">
           <p>
-            MIRR uses two rates. A finance rate is applied to negative cash flows, and a
-            reinvestment rate is applied to positive cash flows. The tool calculates MIRR using
-            the finance and reinvestment rates entered on the Time and risk settings tab.
+            This technical appendix is intended to travel with the decision aid. It can be printed or shared alongside the tool so that any user can understand how the results are produced and how to interpret them.
           </p>
-        </div>
-        <div>
-          <div class="appendix-math">
-MIRR = ( FV of positive cash flows at reinvestment rate ÷
-         -PV of negative cash flows at finance rate )<sup>1/T</sup> - 1
-          </div>
-        </div>
-      </div>
-
-      <div class="appendix-two-column">
-        <div>
-          <span class="appendix-badge">Return on investment (ROI)</span>
           <p>
-            ROI expresses the NPV as a percentage of the present value of costs. It is useful for
-            communicating how much value is created per dollar of cost in present value terms.
+            For queries about adapting the tool to other crops, locations or trial designs, users should document the structure of their dataset in a table similar to the one in section 1 and ensure that the control flag, yield and cost columns are mapped correctly before applying the cost benefit analysis formulas described here.
           </p>
-        </div>
-        <div>
-          <div class="appendix-math">
-ROI (percent) = 100 × [ NPV (AUD) ÷ PV of costs (AUD) ]
-          </div>
-        </div>
+        </footer>
       </div>
-
-      <div class="appendix-two-column">
-        <div>
-          <span class="appendix-badge">Payback period</span>
-          <p>
-            The discounted payback period is the earliest year at which the cumulative discounted
-            net benefits turn positive. It is expressed in years from the start of the analysis.
-          </p>
-        </div>
-        <div>
-          <div class="appendix-math">
-Find smallest year τ such that:
-
-Σ<sub>t=0..τ</sub> [ Net benefit<sub>t</sub> (AUD) ÷ (1 + r)<sup>t</sup> ] ≥ 0
-          </div>
-        </div>
-      </div>
-
-      <div class="appendix-two-column">
-        <div>
-          <span class="appendix-badge">Gross margin and profit margin</span>
-          <p>
-            Annual gross margin is average annual benefits minus average annual costs in AUD.
-            Gross profit margin expresses that gross margin as a percentage of benefits.
-          </p>
-        </div>
-        <div>
-          <div class="appendix-math">
-Average annual gross margin (AUD) = (Total benefits (AUD) - Total costs (AUD)) ÷ Years
-
-Gross profit margin (percent) = 100 × [ Average annual gross margin (AUD) ÷
-                                        Average annual benefits (AUD) ]
-          </div>
-        </div>
-      </div>
-
-      <h3>3.3 Risk combination formula</h3>
-      <p>
-        When you click Calculate combined base risk the tool combines the component risks into a
-        single base risk. A simple multiplicative form is used so that the combined risk reflects
-        the chance that all risk factors line up in a way that reduces benefits.
-      </p>
-      <div class="appendix-math">
-Let rTech, rNonCoop, rSocio, rFin, rMan be the component risks between 0 and 1.
-
-Combined base risk R is:
-
-R = 1 - (1 - rTech) × (1 - rNonCoop) × (1 - rSocio) × (1 - rFin) × (1 - rMan)
-      </div>
-      <p>
-        The overall risk base field is then set to R. This means that if each risk is modest the
-        combined risk is still moderate, but if many risks are high the combined risk increases
-        quickly.
-      </p>
-
-      <h3>3.4 Depreciation for capital items</h3>
-      <p>
-        For capital items the tool applies straight line depreciation over the chosen life. Suppose
-        the capital item has an initial cost of AUD 10,000, a salvage value of AUD 1,000, and a
-        useful life of 9 years.
-      </p>
-      <div class="appendix-math">
-Annual depreciation (AUD) = (Initial cost (AUD) - Salvage value (AUD)) ÷ Useful life (years)
-
-In the example:
-
-Annual depreciation = (10,000 - 1,000) ÷ 9 = AUD 1,000 per year (rounded)
-      </div>
-      <p>
-        The depreciation summary in the Results tab aggregates these annual depreciation flows for
-        all capital items in the scenario.
-      </p>
-    </section>
-
-    <section class="card appendix-section">
-      <h2>4. Worked faba bean example in AUD (farmer friendly view)</h2>
-
-      <div class="appendix-callout appendix-callout-steps">
-        <strong>Scenario description in plain language</strong>
-        <p>
-          You are a faba bean grower who currently follows a control practice with no soil
-          amendments. You are considering a new treatment that combines gypsum, lime, and an
-          inoculant. You want to know whether the new treatment is worth its extra cost when
-          applied over the next 10 years, expressed in AUD.
-        </p>
-      </div>
-
-      <h3>4.1 Step 1: Set up the project story</h3>
-      <p>
-        On the Project tab enter a short description such as:
-      </p>
-      <p>
-        The project name is Faba bean soil amendment trial. The with project story notes that
-        soil structure improves and yields increase on treated paddocks. The without project story
-        notes that yields stay at current levels and soil constraints remain.
-      </p>
-
-      <h3>4.2 Step 2: Define time horizon and discount rate</h3>
-      <p>
-        On the Time and risk settings tab set:
-      </p>
-      <p>
-        Analysis start year: 2025  
-        Project start year: 2025  
-        Years of analysis: 10  
-        Discount rate (base): 7 percent  
-        Discount rate (low): 4 percent  
-        Discount rate (high): 10 percent
-      </p>
-      <p>
-        This means that the tool will count benefits and costs over 10 years, discount future cash
-        flows at 7 percent per year in the base case, and use 4 and 10 percent in sensitivity and
-        simulation analysis.
-      </p>
-
-      <h3>4.3 Step 3: Enter outputs and values in AUD</h3>
-      <p>
-        On the Outputs tab define a primary output:
-      </p>
-      <p>
-        Output name: Faba bean grain yield  
-        Unit: tonnes per hectare  
-        Value per unit: AUD 600 per tonne
-      </p>
-      <p>
-        This means that an extra 0.2 tonnes per hectare of grain is worth 0.2 × 600 = AUD 120 per
-        hectare in additional revenue.
-      </p>
-
-      <h3>4.4 Step 4: Enter treatments and labour costs in AUD</h3>
-      <p>
-        On the Treatments tab create two treatments:
-      </p>
-      <p>
-        Treatment 1: Control, flagged as Control in the Control vs treatment field.  
-        Treatment 2: Gypsum plus lime plus inoculant, flagged as Treatment.
-      </p>
-      <p>
-        Suppose the trial data show:
-      </p>
-      <p>
-        Yield under control: 1.8 tonnes per hectare.  
-        Yield under treatment: 2.4 tonnes per hectare.
-      </p>
-      <p>
-        The difference is 0.6 tonnes per hectare. At AUD 600 per tonne this is AUD 360 per hectare
-        in extra gross revenue.
-      </p>
-      <p>
-        Now enter the extra labour and input costs for the treatment:
-      </p>
-      <p>
-        Treatment labour cost: AUD 70 per hectare for extra application time.  
-        Additional input cost: AUD 190 per hectare for gypsum, lime, and inoculant materials.
-      </p>
-      <p>
-        The net gain per hectare in year 1 is:
-      </p>
-      <div class="appendix-math">
-Extra revenue (AUD/ha) = 0.6 t/ha × AUD 600/t = AUD 360/ha  
-Total extra cost (AUD/ha) = Labour (70) + Inputs (190) = AUD 260/ha  
-Net benefit (AUD/ha) = 360 - 260 = AUD 100/ha
-      </div>
-
-      <h3>4.5 Step 5: Adoption and target area</h3>
-      <p>
-        On the Time and risk settings tab set adoption multipliers. Suppose your target area is
-        500 hectares of faba bean over time and you expect adoption to reach 40 percent of that
-        area at its peak. Enter:
-      </p>
-      <p>
-        Adoption base: 0.4  
-        Adoption low: 0.2  
-        Adoption high: 0.6
-      </p>
-      <p>
-        In the base case this means that at peak adoption about 200 hectares use the new treatment.
-        If the net benefit is AUD 100 per hectare then the annual net benefit at peak adoption is
-        about AUD 20,000.
-      </p>
-
-      <h3>4.6 Step 6: Risk settings</h3>
-      <p>
-        Suppose you believe there is a 15 percent chance that technical performance is worse than
-        expected, a 10 percent chance that cooperation is low, a 5 percent social risk, a 10 percent
-        financial risk, and a 10 percent management risk.
-      </p>
-      <p>
-        Enter:
-      </p>
-      <p>
-        Technical risk: 0.15  
-        Non cooperation risk: 0.10  
-        Social risk: 0.05  
-        Financial risk: 0.10  
-        Management risk: 0.10
-      </p>
-      <p>
-        Click Calculate combined base risk. The combined risk R is:
-      </p>
-      <div class="appendix-math">
-R = 1 - (1 - 0.15) × (1 - 0.10) × (1 - 0.05) × (1 - 0.10) × (1 - 0.10)
-
-= 1 - (0.85 × 0.90 × 0.95 × 0.90 × 0.90)
-≈ 1 - 0.590 = 0.41 (41 percent)
-      </div>
-      <p>
-        This means that effective benefits are reduced by about 41 percent compared with the ideal
-        case. The tool applies this risk factor to the benefit stream.
-      </p>
-
-      <h3>4.7 Step 7: Reading the results in AUD</h3>
-      <p>
-        After entering these values click Recalculate results on the Results tab. The tool will
-        show:
-      </p>
-      <p>
-        Present value of benefits (AUD) across all years and adopted area.  
-        Present value of costs (AUD) across all years.  
-        Net present value (AUD), which is the difference between the two.  
-        BCR, IRR, MIRR, ROI, and payback period in years.
-      </p>
-      <p>
-        For a farmer the key questions are:
-      </p>
-      <p>
-        Is NPV positive and sizeable in AUD at the chosen discount rate  
-        Is BCR comfortably above 1  
-        Is the payback period short enough given cash flow and risk tolerance  
-      </p>
-      <p>
-        If the answers are yes, the treatment looks attractive in economic terms under the current
-        assumptions.
-      </p>
-
-      <h3>4.8 Step 8: Exploring uncertainty</h3>
-      <p>
-        On the Simulation tab you can set the number of runs, for example 2000, and choose whether
-        to vary outputs, treatment costs, and other project costs. You can also specify a target BCR,
-        for example 2.
-      </p>
-      <p>
-        When you click Run simulation the tool generates distributions of NPV and BCR in AUD and
-        reports:
-      </p>
-      <p>
-        The chance that NPV is greater than zero.  
-        The chance that BCR is greater than 1.  
-        The chance that BCR is greater than the target value.
-      </p>
-      <p>
-        A farmer can interpret these probabilities as the chance that the treatment pays off under
-        the ranges of assumptions chosen in the Time and risk settings tab.
-      </p>
-    </section>
-
-    <section class="card appendix-section">
-      <h2>5. Technical guidance for analysts and future trials</h2>
-
-      <h3>5.1 Data model and units</h3>
-      <p>
-        Internally the tool represents each outcome and cost as a time indexed cash flow in AUD.
-        All project items are converted into streams of net benefits per unit area and then scaled
-        up using the area and adoption patterns. The core unit is AUD per year. Adoption is treated
-        as a multiplier on the maximum potential area or number of units.
-      </p>
-      <p>
-        When adapting the tool to a new trial the main tasks are:
-      </p>
-      <p>
-        Define outputs that match the new production system and assign AUD values per unit.  
-        Define treatments that reflect the new practices, including treatment specific labour
-        costs in AUD and any additional input costs.  
-        Update the Excel template to match the new trial structure if you want to import plot
-        level data.
-      </p>
-
-      <h3>5.2 Treatment labour cost field</h3>
-      <p>
-        The labour cost field in the Treatments tab is treated as an annual cost per hectare (or
-        per unit if a different unit is specified). It is added to other treatment level costs
-        in the benefit cost calculations. Analysts should ensure that labour costs are valued at
-        an appropriate wage rate, expressed in AUD, reflecting the opportunity cost of labour.
-      </p>
-
-      <h3>5.3 Adoption paths and scaling</h3>
-      <p>
-        The tool implements simple adoption paths that scale treatment level net benefits from
-        per hectare to total benefits at project level. Adoption low, base, and high correspond
-        to different adoption trajectories used in the base case and in the simulation.
-      </p>
-      <div class="appendix-math">
-Let Amax be the maximum potential area (ha).  
-Let aBase be the base peak adoption multiplier between 0 and 1.  
-
-Peak adopted area (ha) = Amax × aBase
-
-Annual net benefit (AUD) in year t = Per hectare net benefit (AUD/ha) × Adopted area in year t (ha)
-      </div>
-      <p>
-        Adoption in each year is implemented through a simple ramp up and plateau profile. This
-        can be adapted in the code if more complex adoption curves are needed.
-      </p>
-
-      <h3>5.4 Simulation engine</h3>
-      <p>
-        The Monte Carlo simulation draws random values for the discount rate, adoption multiplier,
-        risk factor, and optionally for specified cost and benefit fields. Each parameter is drawn
-        within its low and high range around the base case value. For example, if the variation
-        size is 20 percent the tool samples values uniformly within plus or minus 20 percent of
-        the base value.
-      </p>
-      <div class="appendix-math">
-Example for a value X (AUD) and variation size v percent:
-
-Lower bound = X × (1 - v/100)  
-Upper bound = X × (1 + v/100)
-
-Sampled value = Uniform(Lower bound, Upper bound)
-      </div>
-      <p>
-        For each simulation run the tool recalculates the full cash flow in AUD and computes NPV
-        and BCR. It then summarises the distribution of these indicators.
-      </p>
-
-      <h3>5.5 Extending the tool to new farming systems</h3>
-      <p>
-        To apply the tool to another crop or region:
-      </p>
-      <p>
-        Update the Project tab to describe the new system.  
-        Define new outputs that represent the main benefits in AUD, for example crop yield,
-        livestock weight gain, or quality premiums.  
-        Create treatments that capture the relevant practices, with appropriate labour and input
-        costs in AUD.  
-        Adjust adoption and risk assumptions on the Time and risk settings tab to match local
-        conditions.  
-        If needed, adjust Excel templates so that analysts can import the new raw datasets.
-      </p>
-      <p>
-        The core economic logic based on AUD remains the same. This means that the tool can be
-        reused for a wide range of trial designs as long as all monetary inputs are expressed
-        consistently in Australian dollars or treated as equivalent units.
-      </p>
-
-      <h3>5.6 Documentation and reproducibility</h3>
-      <p>
-        Analysts are encouraged to use the Sources tab and the Excel import and export features
-        to keep a clear link between field data, assumptions, and the scenario configured in the
-        tool. The Save project (JSON) function in the main tool stores the entire scenario,
-        including all AUD inputs and settings, so that the analysis can be reproduced or audited
-        later.
-      </p>
-
-      <div class="appendix-footer-note">
-        This technical appendix should be kept together with the JSON scenario files and any Excel
-        workbooks used for the analysis so that future users can understand how all numbers in AUD
-        were derived and how the results were calculated.
-      </div>
-    </section>
+    </main>
   </div>
 </body>
 </html>
