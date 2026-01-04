@@ -1,15 +1,16 @@
 // app.js
 // Farming CBA Decision Tool - Newcastle Business School
 // World Bank style control centric cost benefit engine with:
-// - Default faba beans trial loaded at start
-// - Upload and paste import pipeline with basic validation
+// - Full trial dataset loaded from faba_beans_trial_clean_named.tsv when available
+// - Upload and paste import pipeline with careful validation
 // - Replicate based control baselines where possible
-// - Discounted net present value, benefit to cost ratio and return on investment
+// - Discounted total benefits, total costs, net profit, benefit per dollar spent and return on investment
 // - Comparison to control view with clear green and red cues
 // - Sensitivity grid over discount rates and price multipliers
 // - Scenario save and load with localStorage
 // - Workbook and CSV exports
 // - AI ready narrative and compact data block
+// - Chart views for net profit, benefits and costs, and sensitivity
 // - Bottom right toast messages for key actions
 
 (() => {
@@ -39,6 +40,10 @@
     sensitivity: null,
     scenarios: []
   };
+
+  let npvChart = null;
+  let costChart = null;
+  let sensitivityChart = null;
 
   // ======================
   // Helper: toast messages
@@ -102,7 +107,6 @@
       });
     });
 
-    // Ensure first tab is active on load
     const firstTab = tabs[0];
     if (firstTab) {
       activate(firstTab.dataset.tabTarget);
@@ -137,7 +141,6 @@
     const lines = cleaned.split("\n").filter((l) => l.trim().length > 0);
 
     let headerIndex = 0;
-    // Skip simple dictionary style lines if any
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) continue;
@@ -232,7 +235,6 @@
 
     const treatmentIdx = getColumnIndex(["treatment", "treatment_name", "treat"]);
     if (treatmentIdx === -1) {
-      // Build pseudo treatments
       state.treatments = [];
       state.controlName = null;
       return;
@@ -266,7 +268,6 @@
     if (controlSet.size === 1) {
       controlName = Array.from(controlSet)[0];
     } else if (controlSet.size > 1) {
-      // Pick the most frequent control
       const counts = {};
       state.rows.forEach((row) => {
         const values = Object.values(row);
@@ -290,7 +291,6 @@
       });
       controlName = best;
     } else if (treatments.length) {
-      // Fallback: use first treatment as control
       controlName = treatments[0];
     }
 
@@ -322,7 +322,6 @@
     const yieldIdx = getColumnIndex(["yield", "yield_kg", "yield_t_ha"]);
     const varCostIdx = getColumnIndex(["variable_cost", "var_cost", "cost_variable"]);
     const capCostIdx = getColumnIndex(["capital_cost", "cap_cost", "fixed_cost"]);
-    const controlIdx = getColumnIndex(["is_control", "control", "control_flag"]);
 
     const missingCore = [];
     if (treatmentIdx === -1) missingCore.push("treatment name");
@@ -347,7 +346,7 @@
         label: "Replicate field missing",
         count: 1,
         details:
-          "No clear replicate field was found. The tool will treat the dataset as if there was one large block, and will not use replicate based control baselines."
+          "No clear replicate field was found. The tool will treat the dataset as if there was one large block and will not use replicate based control baselines."
       });
     }
 
@@ -361,21 +360,23 @@
       });
     }
 
-    // Simple missing value count on core numeric fields
+    const yieldId = yieldIdx;
+    const varId = varCostIdx;
+    const capId = capCostIdx;
     let missingNumeric = 0;
-    if (yieldIdx !== -1 || varCostIdx !== -1 || capCostIdx !== -1) {
+    if (yieldId !== -1 || varId !== -1 || capId !== -1) {
       rows.forEach((row) => {
         const values = Object.values(row);
-        if (yieldIdx !== -1) {
-          const v = values[yieldIdx];
+        if (yieldId !== -1) {
+          const v = values[yieldId];
           if (v === "" || v === "?" || isNaN(parseFloat(v))) missingNumeric++;
         }
-        if (varCostIdx !== -1) {
-          const v = values[varCostIdx];
+        if (varId !== -1) {
+          const v = values[varId];
           if (v === "" || v === "?" || isNaN(parseFloat(v))) missingNumeric++;
         }
-        if (capCostIdx !== -1) {
-          const v = values[capCostIdx];
+        if (capId !== -1) {
+          const v = values[capId];
           if (v === "" || v === "?" || isNaN(parseFloat(v))) missingNumeric++;
         }
       });
@@ -391,7 +392,6 @@
       });
     }
 
-    // Basic row count
     checks.push({
       type: "info",
       label: "Row and treatment count",
@@ -534,7 +534,6 @@
       return [];
     }
 
-    // Map replicate -> control yield
     const controlName = state.controlName;
     const repControlYield = {};
     if (controlName && replicateIdx !== -1) {
@@ -640,7 +639,6 @@
       });
     });
 
-    // Rank by NPV descending
     treatmentsStats.sort((a, b) => (b.npv || 0) - (a.npv || 0));
     treatmentsStats.forEach((st, idx) => {
       st.rank = idx + 1;
@@ -677,6 +675,8 @@
     computeAndRenderSensitivity();
     fillAiBriefing(treatmentsStats);
     fillStructuredResults(treatmentsStats);
+    updateNpvChart(treatmentsStats);
+    updateCostChart(treatmentsStats);
   }
 
   // ======================
@@ -729,7 +729,7 @@
 
       const yieldTitle = document.createElement("div");
       yieldTitle.className = "treatment-section-title";
-      yieldTitle.textContent = "Average yield and yield change";
+      yieldTitle.textContent = "Average yield and change compared with control";
 
       const costTitle = document.createElement("div");
       costTitle.className = "treatment-section-title";
@@ -806,7 +806,7 @@
       list = list.filter((t) => t.npv > control.npv);
       if (!list.length) {
         container.innerHTML =
-          "<p class='small muted'>No treatment has a higher net present value than the control under the current settings.</p>";
+          "<p class='small muted'>No treatment has higher net profit over time than the control under the current settings.</p>";
         return;
       }
     }
@@ -815,10 +815,10 @@
       "<thead><tr>" +
       "<th>Rank</th>" +
       "<th>Treatment</th>" +
-      "<th>NPV</th>" +
-      "<th>BCR</th>" +
-      "<th>ROI</th>" +
-      "<th>Change in NPV vs control</th>" +
+      "<th>Net profit over time</th>" +
+      "<th>Benefit per dollar spent</th>" +
+      "<th>Return on investment</th>" +
+      "<th>Net profit difference compared with control</th>" +
       "</tr></thead>";
 
     let rowsHtml = "<tbody>";
@@ -888,21 +888,26 @@
     const control = treatmentsStats.find((t) => t.treatment === controlName) || treatmentsStats[0];
 
     const indicators = [
-      { key: "pvBenefits", label: "Present value of benefits" },
-      { key: "pvCosts", label: "Present value of costs" },
-      { key: "npv", label: "Net present value" },
-      { key: "bcr", label: "Benefit to cost ratio", isRatio: true },
-      { key: "roi", label: "Return on investment", isRatio: true }
+      { key: "pvBenefits", label: "Total benefits over time (discounted)" },
+      { key: "pvCosts", label: "Total costs over time (discounted)" },
+      { key: "npv", label: "Net profit over time" },
+      { key: "bcr", label: "Benefit per dollar spent", isRatio: true },
+      { key: "roi", label: "Return on investment", isRatio: true },
+      { key: "rank", label: "Overall ranking", isRank: true }
     ];
 
     const headers = [];
-    headers.push("<th>Indicator</th>");
+    headers.push("<th>What is measured</th>");
     headers.push("<th class='header-control'>Control (baseline)</th>");
     treatmentsStats.forEach((st) => {
       if (st.treatment === control.treatment) return;
       headers.push("<th class='header-treatment'>" + st.treatment + "</th>");
-      headers.push("<th class='header-treatment'>Change in NPV vs control</th>");
-      headers.push("<th class='header-treatment'>Change in PV costs vs control</th>");
+      headers.push(
+        "<th class='header-treatment'>Difference in net profit compared with control</th>"
+      );
+      headers.push(
+        "<th class='header-treatment'>Difference in total cost compared with control</th>"
+      );
     });
 
     let html = "<table><thead><tr>" + headers.join("") + "</tr></thead><tbody>";
@@ -911,12 +916,24 @@
       let row = "<tr>";
       row += "<th>" + ind.label + "</th>";
 
-      const controlVal = control[ind.key];
-      const controlStr = ind.isRatio ? formatRatio(controlVal) : formatCurrency(controlVal);
-      row += "<td class='cell-strong'>" + controlStr + "</td>";
+      if (ind.isRank) {
+        row += "<td class='cell-strong'>" + control.rank + "</td>";
+      } else {
+        const controlVal = control[ind.key];
+        const controlStr = ind.isRatio ? formatRatio(controlVal) : formatCurrency(controlVal);
+        row += "<td class='cell-strong'>" + controlStr + "</td>";
+      }
 
       treatmentsStats.forEach((st) => {
         if (st.treatment === control.treatment) return;
+
+        if (ind.isRank) {
+          row += "<td>" + st.rank + "</td>";
+          row += "<td></td>";
+          row += "<td></td>";
+          return;
+        }
+
         const val = st[ind.key];
         const valStr = ind.isRatio ? formatRatio(val) : formatCurrency(val);
 
@@ -927,21 +944,10 @@
             deltaNpv > 0 ? "cell-positive cell-strong" : deltaNpv < 0 ? "cell-negative cell-strong" : "";
           const deltaClassCost =
             deltaCosts < 0 ? "cell-positive cell-strong" : deltaCosts > 0 ? "cell-negative cell-strong" : "";
-          if (ind.key === "npv") {
-            row += "<td>" + valStr + "</td>";
-            row += "<td class='" + deltaClassNpv + "'>" + formatCurrency(deltaNpv) + "</td>";
-            row += "<td class='" + deltaClassCost + "'>" + formatCurrency(deltaCosts) + "</td>";
-          } else if (ind.key === "pvBenefits") {
-            row += "<td>" + valStr + "</td>";
-            row += "<td class='" + deltaClassNpv + "'>" + formatCurrency(deltaNpv) + "</td>";
-            row += "<td class='" + deltaClassCost + "'>" + formatCurrency(deltaCosts) + "</td>";
-          } else if (ind.key === "pvCosts") {
-            row += "<td>" + valStr + "</td>";
-            row += "<td class='" + deltaClassNpv + "'>" + formatCurrency(deltaNpv) + "</td>";
-            row += "<td class='" + deltaClassCost + "'>" + formatCurrency(deltaCosts) + "</td>";
-          }
+          row += "<td>" + valStr + "</td>";
+          row += "<td class='" + deltaClassNpv + "'>" + formatCurrency(deltaNpv) + "</td>";
+          row += "<td class='" + deltaClassCost + "'>" + formatCurrency(deltaCosts) + "</td>";
         } else {
-          // Ratios and ROI: only show main value and leave delta cells blank
           row += "<td>" + valStr + "</td>";
           row += "<td></td>";
           row += "<td></td>";
@@ -999,15 +1005,15 @@
       cfg.horizonYears +
       " years, the control is " +
       control.treatment +
-      ". The treatment with the highest net present value is " +
+      ". The treatment with the highest net profit over time is " +
       bestByNpv.treatment +
-      ". Its net present value is " +
+      ". Its net profit over time is " +
       formatCurrency(bestByNpv.npv) +
       ", which is " +
       directionNpv +
       " the control by about " +
       formatCurrency(Math.abs(deltaNpv)) +
-      ". The present value of costs for this treatment is " +
+      ". The total cost over time for this treatment is " +
       directionCost +
       " the control by around " +
       formatCurrency(Math.abs(deltaCost)) +
@@ -1018,13 +1024,12 @@
         ? "higher benefits that more than cover higher costs"
         : "a different combination of costs and benefits") +
       ".\n\n" +
-      "Looking at cost effectiveness, the treatment with the highest benefit to cost ratio is " +
+      "Looking at value for money, the treatment with the highest benefit per dollar spent is " +
       bestByBcr.treatment +
-      " with a ratio of about " +
+      " with a benefit per dollar ratio of about " +
       formatRatio(bestByBcr.bcr) +
       ". This means that every unit of cost spent on this treatment returns that many units of benefit in present value terms. " +
-      "Treatments with a ratio above one return more benefits than costs. " +
-      "Treatments with a ratio below one return less benefits than costs under the current assumptions.";
+      "Treatments with a ratio above one return more benefits than costs under the current assumptions.";
 
     el.textContent = text;
   }
@@ -1045,7 +1050,9 @@
     const baseStats = computeTreatmentStatistics();
     if (!baseStats.length) {
       el.textContent =
-        "Sensitivity results will appear here once the economic engine has been able to calculate net present values.";
+        "Sensitivity results will appear here once the economic engine has been able to calculate net profit over time.";
+      state.sensitivity = null;
+      updateSensitivityChart(null);
       return;
     }
 
@@ -1059,7 +1066,9 @@
 
     if (!bestBase) {
       el.textContent =
-        "Only one treatment is present in the dataset. Sensitivity analysis is not very informative in this case.";
+        "Only one treatment is present in the dataset. Sensitivity analysis is less informative in this case.";
+      state.sensitivity = null;
+      updateSensitivityChart(null);
       return;
     }
 
@@ -1094,8 +1103,7 @@
     state.sensitivity = { records };
 
     let text =
-      "The table below looks at combinations of discount rates and price multipliers. " +
-      "For each combination it shows the treatment with the highest net present value and the margin relative to the control.\n\n";
+      "The summary below lists combinations of discount rates and price levels and shows the best treatment and its margin over the control.\n\n";
 
     records.forEach((rec) => {
       const ratePct = (rec.discount * 100).toFixed(1);
@@ -1106,9 +1114,9 @@
         ratePct +
         " percent and price at " +
         pricePct +
-        " percent of the base level: " +
+        " percent of the main price: " +
         rec.bestTreatment +
-        " remains in first place with a net present value of " +
+        " is the best treatment with a net profit over time of " +
         formatCurrency(rec.bestNpv) +
         ". This is ahead of the control by about " +
         formatCurrency(delta) +
@@ -1116,6 +1124,232 @@
     });
 
     el.textContent = text;
+    updateSensitivityChart(records);
+  }
+
+  // ======================
+  // Charts
+  // ======================
+
+  function updateNpvChart(treatmentsStats) {
+    const canvas = document.getElementById("chartNpvVsControl");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    if (npvChart) {
+      npvChart.destroy();
+      npvChart = null;
+    }
+
+    if (!treatmentsStats || !treatmentsStats.length) return;
+
+    const controlName = state.controlName;
+    const control =
+      treatmentsStats.find((t) => t.treatment === controlName) || treatmentsStats[0];
+
+    const labels = [];
+    const data = [];
+
+    treatmentsStats.forEach((st) => {
+      labels.push(st.treatment);
+      const delta = st.npv - control.npv;
+      data.push(delta);
+    });
+
+    const ctx = canvas.getContext("2d");
+    npvChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Net profit difference compared with control",
+            data
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "Treatments (control and alternatives)"
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: "Net profit difference compared with control"
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctxPoint) => {
+                const value = ctxPoint.parsed.y;
+                return "Difference: " + formatCurrency(value);
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function updateCostChart(treatmentsStats) {
+    const canvas = document.getElementById("chartCostBenefit");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    if (costChart) {
+      costChart.destroy();
+      costChart = null;
+    }
+
+    if (!treatmentsStats || !treatmentsStats.length) return;
+
+    const labels = [];
+    const benefits = [];
+    const costs = [];
+
+    treatmentsStats.forEach((st) => {
+      labels.push(st.treatment);
+      benefits.push(st.pvBenefits);
+      costs.push(st.pvCosts);
+    });
+
+    const ctx = canvas.getContext("2d");
+    costChart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Total benefits over time (discounted)",
+            data: benefits
+          },
+          {
+            label: "Total costs over time (discounted)",
+            data: costs
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: false,
+            title: {
+              display: true,
+              text: "Treatments"
+            }
+          },
+          y: {
+            stacked: false,
+            title: {
+              display: true,
+              text: "Value"
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: true
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctxPoint) => {
+                const label = ctxPoint.dataset.label || "";
+                const value = ctxPoint.parsed.y;
+                return label + ": " + formatCurrency(value);
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  function updateSensitivityChart(records) {
+    const canvas = document.getElementById("chartSensitivity");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    if (sensitivityChart) {
+      sensitivityChart.destroy();
+      sensitivityChart = null;
+    }
+
+    if (!records || !records.length) return;
+
+    const cfg = state.config;
+    const baseMultiplier = cfg.priceBase;
+
+    const filtered = records.filter(
+      (rec) => Math.abs(rec.priceMultiplier - baseMultiplier) < 1e-6
+    );
+    if (!filtered.length) return;
+
+    filtered.sort((a, b) => a.discount - b.discount);
+
+    const labels = [];
+    const data = [];
+
+    filtered.forEach((rec) => {
+      labels.push((rec.discount * 100).toFixed(1) + " percent");
+      const delta = rec.bestNpv - rec.controlNpv;
+      data.push(delta);
+    });
+
+    const ctx = canvas.getContext("2d");
+    sensitivityChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Net profit difference between best treatment and control",
+            data
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        tension: 0.2,
+        scales: {
+          x: {
+            title: {
+              display: true,
+              text: "Discount rate"
+            }
+          },
+          y: {
+            title: {
+              display: true,
+              text: "Net profit difference"
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctxPoint) => {
+                const value = ctxPoint.parsed.y;
+                return "Difference: " + formatCurrency(value);
+              }
+            }
+          }
+        }
+      }
+    });
   }
 
   // ======================
@@ -1128,7 +1362,7 @@
 
     if (!treatmentsStats || !treatmentsStats.length) {
       el.value =
-        "The economic engine has not yet been able to calculate net present values. Once data and configuration are in place, this box will contain a ready to use description for an assistant.";
+        "The economic engine has not yet been able to calculate net profit over time. Once data and configuration are in place, this box will contain a ready to use description for an assistant.";
       return;
     }
 
@@ -1143,7 +1377,7 @@
     let txt = "";
     txt +=
       "You are asked to prepare a clear narrative summary of a farm trial and its cost benefit results. " +
-      "The trial compares one control treatment with several alternative treatments. The tool has already calculated net present values, benefit to cost ratios and returns on investment.\n\n";
+      "The trial compares one control treatment with several alternative treatments. The tool has already calculated net profit over time, the benefit per dollar spent and the return on investment for each treatment.\n\n";
 
     txt +=
       "Key economic settings are as follows. The analysis horizon is " +
@@ -1157,22 +1391,21 @@
     txt +=
       "The control treatment is called " +
       control.treatment +
-      ". Under the main economic settings its net present value is " +
+      ". Under the main economic settings its net profit over time is " +
       formatCurrency(control.npv) +
       " in local currency. This provides a baseline for comparison.\n\n";
 
     txt +=
-      "The treatments with the highest net present values are listed below with their net present values and benefit to cost ratios. " +
-      "The first item is the control for reference.\n\n";
+      "The treatments and their main indicators are listed below. For each one, the net profit over time, the benefit per dollar spent and the return on investment are shown.\n\n";
 
     const lines = [];
     treatmentsStats.forEach((st) => {
       lines.push(
         "Treatment name: " +
           st.treatment +
-          ". Net present value: " +
+          ". Net profit over time: " +
           formatCurrency(st.npv) +
-          ". Benefit to cost ratio: " +
+          ". Benefit per dollar spent: " +
           (st.bcr !== null ? formatRatio(st.bcr) : "not defined") +
           ". Return on investment: " +
           (st.roi !== null ? formatRatio(st.roi) : "not defined") +
@@ -1188,7 +1421,7 @@
       txt +=
         "In your narrative, highlight why " +
         first.treatment +
-        " is ranked first based on net present value and how much it gains over the control. " +
+        " is ranked first based on net profit over time and how much it gains over the control. " +
         "Also explain how " +
         second.treatment +
         " compares with the control and with " +
@@ -1198,7 +1431,7 @@
 
     txt +=
       "Please write in plain language that is suitable for farmers and local advisers. " +
-      "Explain what net present value, the benefit to cost ratio and return on investment mean in intuitive terms. " +
+      "Explain what net profit over time, benefit per dollar spent and return on investment mean in intuitive terms. " +
       "Make it clear that results depend on the price per unit and the discount rate. " +
       "Avoid technical jargon wherever possible.";
 
@@ -1211,7 +1444,7 @@
 
     if (!treatmentsStats || !treatmentsStats.length) {
       el.value =
-        '{"note":"No results yet. Once net present values are available this block will contain a compact summary."}';
+        '{"note":"No results yet. Once net profit over time is available this block will contain a compact summary."}';
       return;
     }
 
@@ -1234,9 +1467,9 @@
         avgCapCost: st.avgCapCost,
         pvBenefits: st.pvBenefits,
         pvCosts: st.pvCosts,
-        npv: st.npv,
-        bcr: st.bcr,
-        roi: st.roi,
+        netProfitOverTime: st.npv,
+        benefitPerDollar: st.bcr,
+        returnOnInvestment: st.roi,
         rank: st.rank
       }))
     };
@@ -1299,11 +1532,11 @@
       "AvgDeltaYield",
       "AvgVariableCost",
       "AvgCapitalCost",
-      "PVBenefits",
-      "PVCosts",
-      "NPV",
-      "BCR",
-      "ROI",
+      "TotalBenefitsOverTime",
+      "TotalCostsOverTime",
+      "NetProfitOverTime",
+      "BenefitPerDollarSpent",
+      "ReturnOnInvestment",
       "Rank"
     ];
     const lines = [header.join(",")];
@@ -1343,8 +1576,8 @@
       "DiscountRate",
       "PriceMultiplier",
       "BestTreatment",
-      "BestNPV",
-      "ControlNPV",
+      "BestNetProfitOverTime",
+      "ControlNetProfitOverTime",
       "DifferenceBestMinusControl"
     ];
     const lines = [header.join(",")];
@@ -1375,7 +1608,6 @@
 
     const wb = XLSX.utils.book_new();
 
-    // Raw data sheet
     if (state.header.length && state.rows.length) {
       const dataArray = [state.header];
       state.rows.forEach((row) => {
@@ -1385,7 +1617,6 @@
       XLSX.utils.book_append_sheet(wb, wsData, "RawData");
     }
 
-    // Treatment results sheet
     if (state.results && state.results.treatments && state.results.treatments.length) {
       const t = state.results.treatments;
       const header = [
@@ -1397,11 +1628,11 @@
         "AvgDeltaYield",
         "AvgVariableCost",
         "AvgCapitalCost",
-        "PVBenefits",
-        "PVCosts",
-        "NPV",
-        "BCR",
-        "ROI",
+        "TotalBenefitsOverTime",
+        "TotalCostsOverTime",
+        "NetProfitOverTime",
+        "BenefitPerDollarSpent",
+        "ReturnOnInvestment",
         "Rank"
       ];
       const rows = [header];
@@ -1427,14 +1658,13 @@
       XLSX.utils.book_append_sheet(wb, wsTreat, "Results");
     }
 
-    // Sensitivity sheet
     if (state.sensitivity && state.sensitivity.records) {
       const header = [
         "DiscountRate",
         "PriceMultiplier",
         "BestTreatment",
-        "BestNPV",
-        "ControlNPV",
+        "BestNetProfitOverTime",
+        "ControlNetProfitOverTime",
         "DifferenceBestMinusControl"
       ];
       const rows = [header];
@@ -1520,7 +1750,6 @@
     const rawText = state.rawText;
     const scenario = { name, cfg, rawText };
 
-    // Replace if same name
     const existingIndex = state.scenarios.findIndex((s) => s.name === name);
     if (existingIndex >= 0) {
       state.scenarios[existingIndex] = scenario;
@@ -1546,7 +1775,6 @@
     state.config = { ...state.config, ...scenario.cfg };
     commitDataset(scenario.rawText, scenario.name);
 
-    // Update config inputs
     syncConfigInputsFromState();
 
     showToast("Scenario loaded: " + scenario.name);
@@ -1678,20 +1906,7 @@
   // ======================
 
   function openAppendixWindow() {
-    const win = window.open("", "_blank", "noopener,noreferrer");
-    if (!win) return;
-
-    const appendix = document.getElementById("tab-appendix");
-    const content = appendix ? appendix.innerHTML : "<p>Appendix not available.</p>";
-
-    win.document.write(
-      "<!doctype html><html><head><meta charset='utf-8'><title>Technical appendix</title>" +
-        "<style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;padding:20px;max-width:800px;margin:0 auto;background:#f7f9fc;color:#111827;}h1,h2,h3{color:#004488;}p{line-height:1.6;}</style>" +
-        "</head><body><h1>Technical appendix</h1>" +
-        content +
-        "</body></html>"
-    );
-    win.document.close();
+    window.open("technical-appendix.html", "_blank", "noopener");
   }
 
   // ======================
@@ -1716,11 +1931,46 @@
   // ======================
 
   function loadDefaultDataset() {
-    const el = document.getElementById("defaultDataset");
-    if (!el) return;
-    const text = el.value || el.textContent || "";
-    if (!text.trim()) return;
-    commitDataset(text, "Default trial");
+    const pill = document.getElementById("datasetStatusPill");
+    if (pill) {
+      const valueSpan = pill.querySelector(".value");
+      if (valueSpan) {
+        valueSpan.textContent = "Loading full trial data";
+      }
+    }
+
+    const url = "faba_beans_trial_clean_named.tsv";
+
+    fetch(url)
+      .then((resp) => {
+        if (!resp.ok) throw new Error("Not found");
+        return resp.text();
+      })
+      .then((text) => {
+        if (!text || !text.trim()) throw new Error("Empty file");
+        commitDataset(text, "faba_beans_trial_clean_named.tsv");
+      })
+      .catch(() => {
+        const fallbackEl = document.getElementById("defaultDataset");
+        const fallbackText = fallbackEl
+          ? (fallbackEl.value || fallbackEl.textContent || "").trim()
+          : "";
+        if (fallbackText) {
+          commitDataset(fallbackText, "Embedded trial data");
+        } else {
+          if (pill) {
+            const valueSpan = pill.querySelector(".value");
+            if (valueSpan) {
+              valueSpan.textContent =
+                "No dataset loaded. Please upload or paste the official trial file.";
+            }
+          }
+          showToast(
+            "Default trial file not found. Please upload faba_beans_trial_clean_named.tsv.",
+            "error"
+          );
+        }
+      });
   }
 
   // ======================
@@ -1728,7 +1978,6 @@
   // ======================
 
   function bindEvents() {
-    // Data tab
     const fileInput = document.getElementById("fileInput");
     if (fileInput) {
       fileInput.addEventListener("change", (e) => {
@@ -1764,7 +2013,6 @@
       });
     }
 
-    // Config
     const btnApplyConfig = document.getElementById("btnApplyConfig");
     if (btnApplyConfig) {
       btnApplyConfig.addEventListener("click", applyConfigFromInputs);
@@ -1775,7 +2023,6 @@
       btnResetConfig.addEventListener("click", resetConfigToDefault);
     }
 
-    // Scenarios
     const btnSaveScenario = document.getElementById("btnSaveScenario");
     if (btnSaveScenario) {
       btnSaveScenario.addEventListener("click", handleSaveScenario);
@@ -1791,7 +2038,6 @@
       btnDeleteScenario.addEventListener("click", handleDeleteScenario);
     }
 
-    // Filters
     const btnAll = document.getElementById("filterShowAll");
     if (btnAll) {
       btnAll.addEventListener("click", () => {
@@ -1807,7 +2053,7 @@
       btnTopNpv.addEventListener("click", () => {
         if (state.results && state.results.treatments) {
           renderResultsLeaderboard(state.results.treatments, "topNPV");
-          showToast("Showing top treatments by net present value.");
+          showToast("Showing top treatments by net profit over time.");
         }
       });
     }
@@ -1817,7 +2063,7 @@
       btnTopBcr.addEventListener("click", () => {
         if (state.results && state.results.treatments) {
           renderResultsLeaderboard(state.results.treatments, "topBCR");
-          showToast("Showing top treatments by benefit to cost ratio.");
+          showToast("Showing top treatments by benefit per dollar spent.");
         }
       });
     }
@@ -1832,7 +2078,6 @@
       });
     }
 
-    // Exports
     const btnExportClean = document.getElementById("btnExportClean");
     if (btnExportClean) {
       btnExportClean.addEventListener("click", exportCleanTsv);
@@ -1853,7 +2098,6 @@
       btnExportExcel.addEventListener("click", exportExcelWorkbook);
     }
 
-    // AI copy buttons
     const btnCopyAi = document.getElementById("btnCopyAiBriefing");
     if (btnCopyAi) {
       btnCopyAi.addEventListener("click", () => copyFromElement("aiBriefingText"));
@@ -1864,7 +2108,6 @@
       btnCopyJson.addEventListener("click", () => copyFromElement("resultsJson"));
     }
 
-    // Appendix window
     const btnAppendixWindow = document.getElementById("btnOpenAppendixWindow");
     if (btnAppendixWindow) {
       btnAppendixWindow.addEventListener("click", openAppendixWindow);
