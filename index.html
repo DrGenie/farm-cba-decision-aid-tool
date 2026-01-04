@@ -2,469 +2,372 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Farming CBA Decision Tool - Newcastle Business School</title>
+  <title>Faba Beans Trial CBA Decision Aid — Newcastle Business School</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="World Bank style farming cost benefit analysis decision aid with full trial data, clear comparison to control, sensitivity checks and AI ready narrative." />
+  <meta name="description" content="Cost–benefit decision aid for real faba beans soil amendment trials, comparing every treatment to the measured control." />
   <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script defer src="app.js"></script>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="app-header">
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true">F</div>
-        <div class="brand-text">
-          <div class="brand-title">Farming CBA Decision Tool</div>
-          <div class="brand-subtitle">Newcastle Business School · World Bank style view</div>
-        </div>
-      </div>
-      <div class="header-meta">
-        <div class="dataset-pill" id="datasetStatusPill">
-          <span class="label">Dataset</span>
-          <span class="value">Loading full trial data</span>
-        </div>
-        <a href="technical-appendix.html" target="_blank" rel="noopener" class="header-link">
-          Technical details
-        </a>
-      </div>
-    </header>
+  <div id="toastContainer" aria-live="polite" aria-atomic="true"></div>
 
-    <nav class="tabs" aria-label="Main sections">
-      <button class="tab active" type="button" data-tab-target="tab-intro">Overview</button>
-      <button class="tab" type="button" data-tab-target="tab-data">Data and checks</button>
-      <button class="tab" type="button" data-tab-target="tab-treatments">Treatments and yields</button>
-      <button class="tab" type="button" data-tab-target="tab-config">Configuration and scenarios</button>
-      <button class="tab" type="button" data-tab-target="tab-results">Results</button>
-      <button class="tab" type="button" data-tab-target="tab-sensitivity">Sensitivity</button>
-      <button class="tab" type="button" data-tab-target="tab-ai">AI briefing</button>
-      <button class="tab" type="button" data-tab-target="tab-appendix">Technical appendix</button>
+  <header class="app-header">
+    <div class="branding">
+      <div class="logo-circle" aria-hidden="true">NBS</div>
+      <div class="title-group">
+        <h1>Faba Beans Trial Cost–Benefit Decision Aid</h1>
+        <p>
+          This tool uses the full faba beans trial dataset to compare every soil treatment
+          against the real measured control, using discounted benefits and costs per hectare.
+        </p>
+      </div>
+    </div>
+    <div class="header-meta">
+      <span class="badge badge-live">Real trial data</span>
+      <span class="badge badge-baseline">Control-based comparisons</span>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <nav class="tab-nav" aria-label="Main sections">
+      <button class="tab-button active" data-tab="overviewTab">Overview</button>
+      <button class="tab-button" data-tab="dataTab">Data and settings</button>
+      <button class="tab-button" data-tab="resultsTab">Results</button>
+      <button class="tab-button" data-tab="chartsTab">Charts</button>
+      <button class="tab-button" data-tab="exportsTab">Exports and AI brief</button>
+      <a class="tab-link" href="technical-appendix.html" target="_blank" rel="noopener">
+        Technical details (opens in new tab)
+      </a>
     </nav>
 
-    <main class="tab-panels">
-      <!-- Overview -->
-      <section id="tab-intro" class="tab-panel active" aria-labelledby="Overview">
-        <div class="page">
-          <section class="card">
-            <h1>What this tool does</h1>
-            <p>
-              This tool uses the full faba beans trial dataset to compare farm treatments against a clear control. It turns yield differences and costs into simple economic indicators that show whether a treatment improves profits compared with the control.
-            </p>
-            <p>
-              All results are based on the real control values measured in the field. No rows or columns are removed. Missing values are kept visible and are handled carefully in the calculations.
-            </p>
-          </section>
+    <!-- OVERVIEW TAB -->
+    <section id="overviewTab" class="tab-panel active" aria-labelledby="Overview">
+      <p class="tab-intro">
+        This page gives a high-level snapshot of the trial. The full faba beans trial
+        dataset is loaded automatically from <code>faba_beans_trial_clean_named.tsv</code>.
+        Every result is calculated directly from those measured plots, with the control
+        treatment used as the baseline.
+      </p>
 
-          <section class="card">
-            <h2>Five simple steps for using the tool</h2>
-            <p><strong>First</strong>, look at the Results tab. The main table compares the control with every treatment on total benefits, total costs, net profit and simple ratios. The control always appears as the baseline.</p>
-            <p><strong>Second</strong>, if you want to see or change the underlying data, go to the Data and checks tab. You can upload the official trial file or paste data. The tool will check the content and highlight any concerns.</p>
-            <p><strong>Third</strong>, use the Treatments and yields tab to see how each treatment performs on yield and cost before discounting. This view shows whether gains come from higher yields, lower costs or both.</p>
-            <p><strong>Fourth</strong>, visit the Configuration and scenarios tab to set the price per unit of output, the analysis horizon and the discount rate. You can save and reload full scenarios on your device.</p>
-            <p><strong>Fifth</strong>, explore the charts in the Results and Sensitivity tabs and use the AI briefing tab to prepare a short report for farmers, advisers or policy users.</p>
-          </section>
+      <div class="grid two-column">
+        <section class="card">
+          <h2>Trial snapshot</h2>
+          <div id="overviewSummary" class="overview-summary">
+            <!-- Filled by app.js -->
+          </div>
+        </section>
 
-          <section class="card">
-            <h2>Key ideas in plain language</h2>
-            <p>
-              The control is treated as the baseline treatment. For each treatment, the tool looks at how yields differ from the control and how costs differ from the control. It then applies prices and discounting to show what these differences mean for net profit over time.
+        <section class="card">
+          <h2>How to use this tool</h2>
+          <ol class="steps-list">
+            <li>
+              Go to <strong>Data and settings</strong> to review the commodity price,
+              discount rate, and years over which costs and benefits are counted.
+            </li>
+            <li>
+              Go to <strong>Results</strong> to see a clear comparison of each treatment
+              against the control, including profits, costs, and ranking.
+            </li>
+            <li>
+              Use the <strong>Charts</strong> tab to see profit and cost patterns
+              visually, including where gains come from higher yield or lower costs.
+            </li>
+            <li>
+              Use <strong>Exports and AI brief</strong> to download data and results,
+              or to copy a plain-language summary prompt for report writing.
+            </li>
+          </ol>
+        </section>
+      </div>
+    </section>
+
+    <!-- DATA TAB -->
+    <section id="dataTab" class="tab-panel">
+      <p class="tab-intro">
+        This page controls the main economic assumptions and data source. By default,
+        the tool loads the full faba beans trial dataset. You can override this by
+        uploading a file or pasting data. All datasets go through the same checks and
+        processing, and no rows are removed.
+      </p>
+
+      <div class="grid two-column">
+        <section class="card">
+          <h2>Scenario settings</h2>
+          <div class="field-group">
+            <label for="pricePerTonne">
+              Grain price per tonne
+              <span class="help" data-tooltip="Average price received per tonne of harvested faba beans. This multiplies the yield to calculate benefits.">?</span>
+            </label>
+            <div class="input-with-unit">
+              <input id="pricePerTonne" type="number" min="0" step="1" value="500" />
+              <span class="unit-label">$/t</span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="years">
+              Years of benefits and costs
+              <span class="help" data-tooltip="Number of years over which the treatment is expected to affect yield and costs. This sets the time horizon for the cost–benefit analysis.">?</span>
+            </label>
+            <input id="years" type="number" min="1" max="40" step="1" value="10" />
+          </div>
+
+          <div class="field-group">
+            <label for="persistenceYears">
+              Years that yield gains last
+              <span class="help" data-tooltip="Number of years that yield gains from the soil treatment are expected to last. Costs are counted over the full horizon; yield gains can fade sooner.">?</span>
+            </label>
+            <input id="persistenceYears" type="number" min="1" max="40" step="1" value="10" />
+          </div>
+
+          <div class="field-group">
+            <label for="discountRate">
+              Discount rate per year
+              <span class="help" data-tooltip="Discount rate used to convert future costs and benefits into today’s dollars. Higher rates give less weight to future years.">?</span>
+            </label>
+            <div class="input-with-unit">
+              <input id="discountRate" type="number" min="0" max="30" step="0.5" value="5" />
+              <span class="unit-label">%</span>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label for="controlChoice">
+              Control treatment
+              <span class="help" data-tooltip="Treatment used as the baseline for all comparisons. By default, this is detected from the trial dataset using the control flag.">?</span>
+            </label>
+            <select id="controlChoice"></select>
+          </div>
+
+          <button id="applyScenario" class="btn primary">Apply settings</button>
+        </section>
+
+        <section class="card">
+          <h2>Data source</h2>
+          <p class="small">
+            The tool always starts from the full trial dataset
+            <code>faba_beans_trial_clean_named.tsv</code>. You can upload or paste
+            another dataset with the same structure. All columns and rows are kept;
+            missing values are handled transparently and never filled silently.
+          </p>
+
+          <div class="field-group">
+            <label>
+              Upload trial file
+              <span class="help" data-tooltip="Upload a tab-separated or comma-separated file. All columns are read. The file must contain the same types of columns as the original trial.">?</span>
+            </label>
+            <input id="fileInput" type="file" accept=".tsv,.csv,.txt" />
+          </div>
+
+          <div class="field-group">
+            <label for="pasteInput">
+              Paste data (tab- or comma-separated)
+              <span class="help" data-tooltip="Paste the full header row and all data rows from a spreadsheet. The tool will detect whether it is tab- or comma-separated.">?</span>
+            </label>
+            <textarea id="pasteInput" rows="6" placeholder="Paste header and rows here"></textarea>
+            <button id="btnLoadPasted" class="btn secondary">Load pasted data</button>
+          </div>
+
+          <div class="field-group inline-actions">
+            <button id="btnReloadDefault" class="btn ghost">
+              Reload original trial data
+            </button>
+          </div>
+
+          <div class="data-summary">
+            <h3>Dataset summary</h3>
+            <div id="dataSummary" class="small muted">
+              Waiting for dataset...
+            </div>
+          </div>
+
+          <div class="data-checks">
+            <h3>Data checks</h3>
+            <p class="small">
+              This section lists any issues found in the dataset, such as missing
+              columns or missing values. These checks never remove rows or columns.
             </p>
-            <p>
-              All indicators are shown in everyday language. The aim is to help farmers and advisers see which treatments give better long run profits and whether these gains come from higher incomes, lower costs or a mix of both.
-            </p>
-          </section>
+            <ul id="dataChecks" class="check-list"></ul>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- RESULTS TAB -->
+    <section id="resultsTab" class="tab-panel">
+      <p class="tab-intro">
+        This page shows the main results. Every number is calculated from the full trial
+        dataset. The control treatment appears as the baseline. All other treatments
+        are compared directly with this control in terms of discounted benefits,
+        discounted costs, and net profit per hectare over time.
+      </p>
+
+      <section class="card">
+        <div class="card-header-row">
+          <h2>Treatment leaderboard</h2>
+          <div class="field-group compact">
+            <label for="leaderboardFilter">
+              Filter
+              <span class="help" data-tooltip="Use these quick filters to focus on the most profitable or cost-effective treatments compared with the control.">?</span>
+            </label>
+            <select id="leaderboardFilter">
+              <option value="all">Show all treatments</option>
+              <option value="topNPV">Top 5 by net profit</option>
+              <option value="topBCR">Top 5 by benefit per dollar spent</option>
+              <option value="betterThanControl">Only improvements vs control</option>
+            </select>
+          </div>
+        </div>
+        <div id="leaderboardContainer" class="leaderboard">
+          <!-- Filled by app.js -->
         </div>
       </section>
 
-      <!-- Data and checks -->
-      <section id="tab-data" class="tab-panel" aria-labelledby="Data and checks">
-        <div class="page">
-          <section class="card">
-            <h2>Data import and quality checks</h2>
-            <p class="small muted">
-              This tab shows how the full trial dataset is read and checked. The control values and all other treatments are kept exactly as recorded. No observations are dropped. Missing values are treated as missing, not as zero.
-            </p>
-
-            <div class="grid two-col" style="margin-top:10px;">
-              <div>
-                <h3>Upload a trial file</h3>
-                <div class="field-group">
-                  <div class="field-row">
-                    <label for="fileInput">
-                      Select the official trial file
-                      <span class="help-tip" title="Use the full faba_beans_trial_clean_named.tsv file or a file with the same columns and all rows.">?</span>
-                    </label>
-                    <input id="fileInput" type="file" accept=".txt,.tsv,.csv" />
-                  </div>
-                  <div class="field-row">
-                    <button type="button" class="btn btn-primary" id="btnUseDefault">
-                      Reload official trial file
-                    </button>
-                  </div>
-                </div>
-                <p class="small muted">
-                  The tool expects a header row with columns for replicate, treatment name, a control flag, yield and cost information. Any extra columns are kept and returned in the cleaned export.
-                </p>
-              </div>
-
-              <div>
-                <h3>Paste data</h3>
-                <div class="field-group">
-                  <div class="field-row">
-                    <label for="pasteInput">
-                      Paste data from a spreadsheet
-                      <span class="help-tip" title="Copy rows, including the header, from your spreadsheet and paste them here. Columns must match the trial file.">?</span>
-                    </label>
-                    <textarea id="pasteInput" placeholder="Paste your tab or comma separated data here. Include a single header row."></textarea>
-                  </div>
-                  <div class="field-row">
-                    <button type="button" class="btn btn-strong" id="btnParsePaste">
-                      Replace data with pasted content
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="import-summary" id="importSummary" role="status" aria-live="polite" style="margin-top:10px;">
-              The tool is attempting to load the full faba beans trial dataset. If this does not work, please upload the official file using the options above.
-            </div>
-
-            <div id="dataChecks" aria-label="Data quality checks"></div>
-          </section>
-
-          <section class="card">
-            <h2>Variables used in the calculations</h2>
-            <p class="small muted">
-              This table shows which columns from the trial file are used for replicates, treatment names, the control flag, yields and costs. All other columns are kept for export and documentation.
-            </p>
-            <div id="variableSummary"></div>
-          </section>
+      <section class="card">
+        <div class="card-header-row">
+          <h2>Comparison to control</h2>
+          <p class="small muted">
+            Rows show what is being measured. Columns show the control and each
+            treatment. Within each treatment cell you see the level for that treatment
+            and the change compared with the control. All figures are per hectare and
+            discounted over the years you selected.
+          </p>
         </div>
-      </section>
 
-      <!-- Treatments and yields -->
-      <section id="tab-treatments" class="tab-panel" aria-labelledby="Treatments and yields">
-        <div class="page">
-          <section class="card">
-            <h2>Average yields and costs by treatment</h2>
-            <p class="small muted">
-              This view focuses on the raw trial outcomes. It shows the average yield for each treatment, the average change in yield compared with the control and average costs per plot. This helps to see whether gains come mainly from higher yields, lower costs or both.
-            </p>
-            <div id="treatmentsList"></div>
-          </section>
+        <div class="comparison-wrapper">
+          <table id="comparisonTable" class="comparison-table" aria-describedby="comparisonHelp">
+            <!-- Filled by app.js -->
+          </table>
         </div>
+        <p id="comparisonHelp" class="small muted">
+          Net profit over time is the discounted value of total benefits minus discounted
+          total costs. Benefit per dollar spent is the ratio of discounted benefits to
+          discounted costs. Return on investment is net profit divided by discounted
+          costs, expressed as a percentage.
+        </p>
       </section>
+    </section>
 
-      <!-- Configuration and scenarios -->
-      <section id="tab-config" class="tab-panel" aria-labelledby="Configuration and scenarios">
-        <div class="page">
-          <section class="card">
-            <h2>Economic settings</h2>
+    <!-- CHARTS TAB -->
+    <section id="chartsTab" class="tab-panel">
+      <p class="tab-intro">
+        This page presents charts based on the full dataset. The charts highlight which
+        treatments perform better or worse than the control and whether gains come from
+        higher yields, lower costs, or both. All charts update when scenario settings
+        or data sources change.
+      </p>
+
+      <div class="grid two-column">
+        <section class="card">
+          <h2>Extra net profit compared with control</h2>
+          <p class="small muted">
+            This bar chart shows the difference in discounted net profit per hectare
+            between each treatment and the control. Bars above zero represent gains
+            relative to the control; bars below zero represent losses.
+          </p>
+          <div class="chart-container">
+            <canvas id="chartNetProfitVsControl" aria-label="Net profit difference compared with control"></canvas>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Total discounted costs and benefits</h2>
+          <p class="small muted">
+            This chart compares discounted total benefits and discounted total costs per
+            hectare for each treatment, including the control. It shows whether a
+            treatment wins mainly through higher benefits, lower costs, or a mix of both.
+          </p>
+          <div class="chart-container">
+            <canvas id="chartCostsBenefits" aria-label="Total discounted benefits and costs"></canvas>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <!-- EXPORTS TAB -->
+    <section id="exportsTab" class="tab-panel">
+      <p class="tab-intro">
+        This page lets you take results out of the tool. You can download the cleaned
+        dataset, treatment summaries, and results tables for use in spreadsheets or
+        reports. You can also copy a ready-made plain-language prompt to use with an
+        AI writing assistant.
+      </p>
+
+      <div class="grid two-column">
+        <section class="card">
+          <h2>Download data and results</h2>
+          <div class="field-group">
+            <button id="btnExportCleanData" class="btn secondary full-width">
+              Download cleaned dataset (TSV)
+            </button>
             <p class="small muted">
-              These settings control how the tool turns yield and cost differences into long run net profits. When you change any setting, all tables and charts update immediately.
+              Contains all columns and rows from the current dataset. No observations
+              are removed; missing values are kept explicit.
             </p>
+          </div>
 
-            <div class="grid two-col" style="margin-top:10px;">
-              <div class="field-group">
-                <div class="field-row">
-                  <label for="pricePerUnit">
-                    Price per unit of output
-                    <span class="help-tip" title="Set the farm gate price for the main output, for example dollars per tonne of grain.">?</span>
-                  </label>
-                  <input id="pricePerUnit" type="number" min="0" step="0.01" value="600" />
-                  <span class="small muted">For example, price per tonne of grain or per kilogram of product.</span>
-                </div>
-
-                <div class="field-row">
-                  <label for="horizonYears">
-                    Analysis horizon in years
-                    <span class="help-tip" title="Choose how many years the treatment is expected to influence yields and costs.">?</span>
-                  </label>
-                  <input id="horizonYears" type="number" min="1" step="1" value="10" />
-                  <span class="small muted">A longer horizon spreads one time capital costs over more years.</span>
-                </div>
-
-                <div class="field-row">
-                  <label for="discountRate">
-                    Discount rate (percent per year)
-                    <span class="help-tip" title="The discount rate reflects how strongly you value money today compared with money in future years.">?</span>
-                  </label>
-                  <input id="discountRate" type="number" min="0" step="0.1" value="6" />
-                  <span class="small muted">Higher discount rates reduce the weight given to future profits.</span>
-                </div>
-              </div>
-
-              <div class="field-group">
-                <div class="field-row">
-                  <label>
-                    Discount rate range for sensitivity (percent per year)
-                    <span class="help-tip" title="These values are used only for the sensitivity charts to test higher and lower discount rates.">?</span>
-                  </label>
-                  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
-                    <div>
-                      <label for="discountLow" class="small">Low</label>
-                      <input id="discountLow" type="number" min="0" step="0.1" value="4" />
-                    </div>
-                    <div>
-                      <label for="discountBase" class="small">Base</label>
-                      <input id="discountBase" type="number" min="0" step="0.1" value="6" />
-                    </div>
-                    <div>
-                      <label for="discountHigh" class="small">High</label>
-                      <input id="discountHigh" type="number" min="0" step="0.1" value="8" />
-                    </div>
-                  </div>
-                  <span class="small muted">The Results tab uses only the main discount rate above.</span>
-                </div>
-
-                <div class="field-row">
-                  <label>
-                    Price range for sensitivity (multipliers)
-                    <span class="help-tip" title="These multipliers test what happens when prices fall or rise relative to the main price.">?</span>
-                  </label>
-                  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
-                    <div>
-                      <label for="priceLow" class="small">Low</label>
-                      <input id="priceLow" type="number" min="0" step="0.05" value="0.8" />
-                    </div>
-                    <div>
-                      <label for="priceBase" class="small">Base</label>
-                      <input id="priceBase" type="number" min="0" step="0.05" value="1" />
-                    </div>
-                    <div>
-                      <label for="priceHigh" class="small">High</label>
-                      <input id="priceHigh" type="number" min="0" step="0.05" value="1.2" />
-                    </div>
-                  </div>
-                  <span class="small muted">For example, 0.8 means prices are 20 percent lower than the main price.</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="commit-row">
-              <div class="button-row">
-                <button type="button" class="btn btn-strong" id="btnApplyConfig">Apply settings</button>
-                <button type="button" class="btn btn-ghost" id="btnResetConfig">Reset to default</button>
-              </div>
-            </div>
-          </section>
-
-          <section class="card">
-            <h2>Save and load scenarios</h2>
+          <div class="field-group">
+            <button id="btnExportSummary" class="btn secondary full-width">
+              Download treatment summary (CSV)
+            </button>
             <p class="small muted">
-              A scenario stores the current dataset and all economic settings in your browser. This is useful for comparing regions, price assumptions or discount rates without losing your work.
+              Contains one row per treatment with average yield, average costs, and all
+              discounted cost–benefit indicators.
             </p>
+          </div>
 
-            <div class="grid two-col" style="margin-top:10px;">
-              <div class="field-group">
-                <div class="field-row">
-                  <label for="scenarioName">
-                    Scenario name
-                    <span class="help-tip" title="Give each scenario a clear name, such as region and year, so you can recognise it later.">?</span>
-                  </label>
-                  <input id="scenarioName" type="text" placeholder="For example, base prices north region" />
-                </div>
-                <div class="field-row">
-                  <div class="button-row">
-                    <button type="button" class="btn btn-primary" id="btnSaveScenario">Save scenario</button>
-                    <button type="button" class="btn" id="btnDeleteScenario">Delete selected scenario</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="field-group">
-                <div class="field-row">
-                  <label for="scenarioSelect">
-                    Saved scenarios in this browser
-                    <span class="help-tip" title="Pick a scenario from this list to load its data and settings.">?</span>
-                  </label>
-                  <select id="scenarioSelect"></select>
-                </div>
-                <div class="field-row">
-                  <button type="button" class="btn btn-strong" id="btnLoadScenario">
-                    Load selected scenario
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <p class="small muted" style="margin-top:8px;">
-              Scenarios are stored only on this device and browser. Clearing your browser storage will remove them.
-            </p>
-          </section>
-        </div>
-      </section>
-
-      <!-- Results -->
-      <section id="tab-results" class="tab-panel" aria-labelledby="Results">
-        <div class="page">
-          <section class="card">
-            <h2>Summary of treatment performance</h2>
+          <div class="field-group">
+            <button id="btnExportResults" class="btn secondary full-width">
+              Download comparison to control (CSV)
+            </button>
             <p class="small muted">
-              This section gives a quick view of how each treatment compares with the control in terms of net profit over time. The figures update straight away if you change prices or discount rates.
+              Contains the same indicators as the comparison table, ready to paste into
+              a spreadsheet or document.
             </p>
+          </div>
 
-            <div class="results-controls" style="margin-top:8px;">
-              <div class="quick-filters">
-                <span class="label">Quick filters</span>
-              </div>
-              <div class="button-row">
-                <button type="button" class="btn" id="filterShowAll">Show all treatments</button>
-                <button type="button" class="btn" id="filterTopNPV">Top five by net profit</button>
-                <button type="button" class="btn" id="filterTopBCR">Top five by benefit per dollar spent</button>
-                <button type="button" class="btn" id="filterOnlyBetter">Show treatments with higher net profit than control</button>
-              </div>
-            </div>
-
-            <div id="resultsLeaderboard"></div>
-
-            <div class="chart-card">
-              <h3>Net profit compared with control</h3>
-              <p class="small muted">
-                Bars above zero show treatments that give higher net profit over time than the control. Bars below zero show lower net profit than the control.
-              </p>
-              <div class="chart-wrapper">
-                <canvas id="chartNpvVsControl" aria-label="Net profit compared with control" role="img"></canvas>
-              </div>
-            </div>
-
-            <div class="chart-card">
-              <h3>Total benefits and total costs by treatment</h3>
-              <p class="small muted">
-                This chart compares discounted total benefits and discounted total costs for each treatment and the control. It helps to see whether gains come more from higher incomes, lower costs or both.
-              </p>
-              <div class="chart-wrapper">
-                <canvas id="chartCostBenefit" aria-label="Total benefits and costs by treatment" role="img"></canvas>
-              </div>
-            </div>
-          </section>
-
-          <section class="card">
-            <h2>Detailed comparison with control</h2>
+          <div class="field-group">
+            <button id="btnExportWorkbook" class="btn ghost full-width">
+              Download Excel workbook
+            </button>
             <p class="small muted">
-              This table is the core output of the tool. It compares the control with every treatment on total benefits, total costs, net profit and simple ratios. It also shows how much more or less profit and cost each treatment has compared with the control.
+              Creates an Excel file with sheets for the cleaned dataset, treatment
+              summary, and comparison-to-control results.
             </p>
+          </div>
+        </section>
 
-            <div class="results-exports">
-              <button type="button" class="btn btn-primary" id="btnExportClean">Export cleaned dataset as TSV</button>
-              <button type="button" class="btn btn-primary" id="btnExportTreatments">Export treatment results as CSV</button>
-              <button type="button" class="btn" id="btnExportSensitivity">Export sensitivity grid as CSV</button>
-              <button type="button" class="btn" id="btnExportExcel">Export workbook for Excel</button>
-            </div>
+        <section class="card">
+          <h2>AI-ready summary prompt</h2>
+          <p class="small muted">
+            This prompt describes the scenario, the control, and how each treatment
+            compares in terms of benefits, costs, and net profit. You can copy and
+            paste it into an AI writing assistant to draft short reports for farmers,
+            advisers, or policy makers.
+          </p>
 
-            <div id="comparisonToControl"></div>
+          <div class="field-group">
+            <label for="aiBriefing">
+              Summary prompt text
+              <span class="help" data-tooltip="This text is generated from the current scenario and results. You can paste it into any AI assistant to request a report, leaving out or editing any parts you do not need.">?</span>
+            </label>
+            <textarea id="aiBriefing" rows="10" readonly></textarea>
+          </div>
+          <button id="btnCopyAiBriefing" class="btn primary">
+            Copy summary prompt
+          </button>
+        </section>
+      </div>
+    </section>
+  </main>
 
-            <div style="margin-top:10px;">
-              <label for="resultsNarrative" class="small muted">Plain language explanation</label>
-              <div id="resultsNarrative" class="narrative-block"></div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <!-- Sensitivity -->
-      <section id="tab-sensitivity" class="tab-panel" aria-labelledby="Sensitivity">
-        <div class="page">
-          <section class="card">
-            <h2>How results change under different prices and rates</h2>
-            <p class="small muted">
-              This tab explores how net profit results change when prices and discount rates move up or down. This helps to check whether a treatment remains attractive under tougher or more favourable conditions.
-            </p>
-            <div id="sensitivitySummary"></div>
-
-            <div class="chart-card" style="margin-top:12px;">
-              <h3>Difference in net profit between best treatment and control</h3>
-              <p class="small muted">
-                This chart looks at the best treatment for each discount rate, using the main price level. It shows how the net profit margin over the control changes as the discount rate rises or falls.
-              </p>
-              <div class="chart-wrapper">
-                <canvas id="chartSensitivity" aria-label="Sensitivity of net profit difference to discount rates" role="img"></canvas>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <!-- AI briefing -->
-      <section id="tab-ai" class="tab-panel" aria-labelledby="AI briefing">
-        <div class="page">
-          <section class="card">
-            <h2>AI ready summary text</h2>
-            <p class="small muted">
-              This text block is prepared for copying into an assistant. It explains the trial, the settings and the main findings in plain language for farmers and policy users.
-            </p>
-
-            <div class="field-group" style="margin-top:8px;">
-              <div class="field-row">
-                <label for="aiBriefingText">Narrative for an assistant</label>
-                <textarea id="aiBriefingText"></textarea>
-              </div>
-              <div class="field-row">
-                <button type="button" class="btn btn-primary" id="btnCopyAiBriefing">Copy briefing text</button>
-              </div>
-            </div>
-          </section>
-
-          <section class="card">
-            <h2>Compact data block for an assistant</h2>
-            <p class="small muted">
-              This block summarises the main indicators by treatment in a structured format. It is suitable for assistants that can read simple data structures.
-            </p>
-
-            <div class="field-group" style="margin-top:8px;">
-              <div class="field-row">
-                <label for="resultsJson">Structured results</label>
-                <textarea id="resultsJson"></textarea>
-              </div>
-              <div class="field-row">
-                <button type="button" class="btn" id="btnCopyResultsJson">Copy structured data</button>
-              </div>
-            </div>
-          </section>
-        </div>
-      </section>
-
-      <!-- Technical appendix -->
-      <section id="tab-appendix" class="tab-panel" aria-labelledby="Technical appendix">
-        <div class="page">
-          <section class="card">
-            <h2>How the calculations work</h2>
-            <p>
-              The tool treats the control treatment as the fixed baseline and uses the real values from the trial dataset without changing them. For each replicate, it identifies the plots that belong to the control and uses their yields as the reference for that replicate.
-            </p>
-            <p>
-              For every other treatment, the tool looks at how yield differs from the control within each replicate. It then averages these differences to obtain a change in yield per unit of land. This change is multiplied by the price per unit of output to give an annual benefit per unit of land.
-            </p>
-            <p>
-              Capital costs are treated as taking place in year zero and are not discounted. Variable costs are treated as annual flows and are discounted over the chosen analysis horizon. Net profit over time is calculated as total benefits over time minus total costs over time.
-            </p>
-            <p>
-              The technical appendix describes the same formulas in more detail, in a way that can be cited in reports and funding proposals.
-            </p>
-          </section>
-
-          <section class="card">
-            <h2>Open full technical details</h2>
-            <p>
-              Use the link below to open the full technical appendix in a new browser tab. It gives a step by step description of the cost benefit methods used in this tool.
-            </p>
-            <div class="button-row">
-              <a href="technical-appendix.html" target="_blank" rel="noopener" class="btn">
-                Open technical details in new tab
-              </a>
-            </div>
-          </section>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <!-- Toast host -->
-  <div class="toast-host" id="toastHost" aria-live="polite" aria-atomic="true"></div>
-
-  <!-- Default dataset as hidden block (optional embedded TSV, should contain the full trial if used) -->
-  <textarea id="defaultDataset" style="display:none;"></textarea>
+  <footer class="app-footer">
+    <p class="small muted">
+      Developed using the full faba beans trial dataset. All values are illustrative
+      of those trials only and should be interpreted with local agronomic advice.
+    </p>
+  </footer>
 </body>
 </html>
