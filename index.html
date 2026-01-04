@@ -1,1080 +1,430 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Farming CBA Decision Aid Tool - Newcastle Business School</title>
+  <meta charset="utf-8" />
+  <title>Farming CBA Decision Tool - Newcastle Business School</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="World Bank style farming cost benefit analysis decision aid with default trial data, Excel first workflow, clear comparison to control, sensitivity checks and AI ready narrative." />
   <link rel="stylesheet" href="styles.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="app.js"></script>
 </head>
-<body data-theme="worldbank-light">
-  <div id="toast-root"></div>
-
-  <header class="app-header">
-    <div class="brand">
-      <div class="brand-mark">NBS</div>
-      <div class="brand-text">
-        <div class="brand-title">Farming CBA Decision Aid Tool</div>
-        <div class="brand-subtitle">Newcastle Business School</div>
+<body>
+  <div class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">F</div>
+        <div class="brand-text">
+          <div class="brand-title">Farming CBA Decision Tool</div>
+          <div class="brand-subtitle">Newcastle Business School · World Bank style view</div>
+        </div>
       </div>
-    </div>
-    <div class="header-actions">
-      <button id="startBtn" class="btn primary">Start with project setup</button>
-      <button id="saveProject" class="btn ghost">Save project (JSON)</button>
-      <button id="loadProject" class="btn ghost">Load project</button>
-      <input type="file" id="loadFile" accept=".json" style="display:none" />
-    </div>
-  </header>
+      <div class="header-meta">
+        <div class="dataset-pill" id="datasetStatusPill">
+          <span class="label">Dataset</span>
+          <span class="value">Default trial data loaded</span>
+        </div>
+      </div>
+    </header>
 
-  <main class="app-main">
-    <nav class="tabs-nav" aria-label="Main sections">
-      <button type="button" class="tab-link active" data-tab="intro" aria-selected="true">Introduction</button>
-      <button type="button" class="tab-link" data-tab="project">Project</button>
-      <button type="button" class="tab-link" data-tab="settings">Time and risk settings</button>
-      <button type="button" class="tab-link" data-tab="outputs">Outputs</button>
-      <button type="button" class="tab-link" data-tab="treatments">Treatments</button>
-      <button type="button" class="tab-link" data-tab="benefits">Additional benefits</button>
-      <button type="button" class="tab-link" data-tab="costs">Other costs</button>
-      <button type="button" class="tab-link" data-tab="database">Sources</button>
-      <button type="button" class="tab-link" data-tab="results">Results</button>
-      <button type="button" class="tab-link" data-tab="simulation">Simulation</button>
-      <button type="button" class="tab-link" data-tab="excel">Excel import and export</button>
-      <button type="button" class="tab-link" data-tab="copilot">Policy brief helper</button>
-      <button type="button" class="tab-link" data-tab="appendix">Technical appendix</button>
+    <nav class="tabs" aria-label="Main sections">
+      <button class="tab active" type="button" data-tab-target="tab-intro">Overview</button>
+      <button class="tab" type="button" data-tab-target="tab-data">Data and checks</button>
+      <button class="tab" type="button" data-tab-target="tab-treatments">Treatments and yields</button>
+      <button class="tab" type="button" data-tab-target="tab-config">Configuration and scenarios</button>
+      <button class="tab" type="button" data-tab-target="tab-results">Results</button>
+      <button class="tab" type="button" data-tab-target="tab-sensitivity">Sensitivity</button>
+      <button class="tab" type="button" data-tab-target="tab-ai">AI briefing</button>
+      <button class="tab" type="button" data-tab-target="tab-appendix">Technical appendix</button>
     </nav>
 
-    <!-- INTRO TAB -->
-    <section class="tab-panel active show" id="tab-intro" data-tab-panel="intro" aria-hidden="false">
-      <div class="card">
-        <h1>Farming cost benefit analysis tool</h1>
-        <p>
-          This tool summarises the costs and benefits of farm treatments over a chosen analysis
-          period. It is designed for applied farm trials and for rapid assessment of alternative
-          strategies.
-        </p>
-        <p>
-          The default dataset is based on a faba bean soil amendment trial. You can keep this as
-          an example or replace it with your own data using the Excel tab.
-        </p>
-        <p>
-          Use the tabs to move from project description, through outputs and treatments, to
-          additional benefits, costs, and risk settings. The Results and Simulation tabs provide
-          economic indicators and uncertainty analysis.
-        </p>
-        <div class="intro-actions">
-          <button id="startBtn-duplicate" class="btn primary" data-tab-jump="project">
-            Go to project setup
-          </button>
-          <button class="btn" data-tab-jump="outputs">Jump to outputs</button>
-          <button class="btn" data-tab-jump="results">Jump to results</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- PROJECT TAB -->
-    <section class="tab-panel" id="tab-project" data-tab-panel="project" aria-hidden="true">
-      <div class="card">
-        <h2>Project description</h2>
-        <div class="row-3">
-          <div class="field">
-            <label for="projectName" data-tooltip="Short title for the farm trial or investment project.">
-              Project name
-            </label>
-            <input id="projectName" type="text" />
-          </div>
-          <div class="field">
-            <label for="projectLead" data-tooltip="Person with overall responsibility for the project.">
-              Project lead
-            </label>
-            <input id="projectLead" type="text" />
-          </div>
-          <div class="field">
-            <label for="analystNames" data-tooltip="People who prepared the cost benefit analysis.">
-              Analyst team
-            </label>
-            <input id="analystNames" type="text" />
-          </div>
-        </div>
-
-        <div class="row-3">
-          <div class="field">
-            <label for="projectTeam" data-tooltip="Delivery partners or trial team involved in implementation.">
-              Partners or trial team
-            </label>
-            <input id="projectTeam" type="text" />
-          </div>
-          <div class="field">
-            <label for="organisation" data-tooltip="Host organisation for the analysis or project.">
-              Organisation
-            </label>
-            <input id="organisation" type="text" />
-          </div>
-          <div class="field">
-            <label for="lastUpdated" data-tooltip="Date when the analysis was last updated.">
-              Last updated
-            </label>
-            <input id="lastUpdated" type="date" />
-          </div>
-        </div>
-
-        <div class="row-3">
-          <div class="field">
-            <label for="contactEmail" data-tooltip="Contact email for questions about the analysis.">
-              Contact email
-            </label>
-            <input id="contactEmail" type="email" />
-          </div>
-          <div class="field">
-            <label for="contactPhone" data-tooltip="Optional phone contact for follow up.">
-              Contact phone
-            </label>
-            <input id="contactPhone" type="tel" />
-          </div>
-          <div class="field"></div>
-        </div>
-
-        <div class="field">
-          <label for="projectSummary" data-tooltip="Short plain language description of the project and trial.">
-            Short summary
-          </label>
-          <textarea id="projectSummary" rows="3"></textarea>
-        </div>
-
-        <div class="field">
-          <label for="projectGoal" data-tooltip="Main goal in terms of production, profit, or risk reduction.">
-            Project goal
-          </label>
-          <textarea id="projectGoal" rows="2"></textarea>
-        </div>
-
-        <div class="row-2">
-          <div class="field">
-            <label for="withProject" data-tooltip="What happens with the treatments or program in place.">
-              With project (change story)
-            </label>
-            <textarea id="withProject" rows="3"></textarea>
-          </div>
-          <div class="field">
-            <label for="withoutProject" data-tooltip="What happens under business as usual conditions.">
-              Without project (baseline story)
-            </label>
-            <textarea id="withoutProject" rows="3"></textarea>
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="projectObjectives" data-tooltip="Specific measurable objectives for the project.">
-            Key objectives
-          </label>
-          <textarea id="projectObjectives" rows="3"></textarea>
-        </div>
-
-        <div class="field">
-          <label for="projectActivities" data-tooltip="Main activities that deliver the change (for example extension, training, soil treatments).">
-            Main activities
-          </label>
-          <textarea id="projectActivities" rows="3"></textarea>
-        </div>
-
-        <div class="field">
-          <label for="stakeholderGroups" data-tooltip="Key stakeholder groups who gain, lose, or are involved.">
-            Stakeholder groups
-          </label>
-          <textarea id="stakeholderGroups" rows="3"></textarea>
-        </div>
-      </div>
-    </section>
-
-    <!-- SETTINGS TAB -->
-    <section class="tab-panel" id="tab-settings" data-tab-panel="settings" aria-hidden="true">
-      <div class="card">
-        <h2>Time horizon and discounting</h2>
-        <div class="row-4">
-          <div class="field">
-            <label for="startYear" data-tooltip="Calendar year when the analysis starts (year 0 cashflows).">
-              Analysis start year
-            </label>
-            <input id="startYear" type="number" />
-          </div>
-          <div class="field">
-            <label for="projectStartYear" data-tooltip="Year when the project or treatments begin on farm.">
-              Project start year
-            </label>
-            <input id="projectStartYear" type="number" />
-          </div>
-          <div class="field">
-            <label for="years" data-tooltip="Number of years over which costs and benefits are counted.">
-              Years of analysis
-            </label>
-            <input id="years" type="number" min="1" />
-          </div>
-          <div class="field">
-            <label for="systemType" data-tooltip="Single farm analysis or roll out across multiple farms.">
-              System type
-            </label>
-            <select id="systemType">
-              <option value="single">Single farm or system</option>
-              <option value="multiple">Multiple farms or systems</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="row-4">
-          <div class="field">
-            <label for="discBase" data-tooltip="Central discount rate used for present value calculations.">
-              Discount rate (base, percent)
-            </label>
-            <input id="discBase" type="number" step="0.1" />
-          </div>
-          <div class="field">
-            <label for="discLow" data-tooltip="Lower bound for discount rate used in the simulation.">
-              Discount rate (low, percent)
-            </label>
-            <input id="discLow" type="number" step="0.1" />
-          </div>
-          <div class="field">
-            <label for="discHigh" data-tooltip="Upper bound for discount rate used in the simulation.">
-              Discount rate (high, percent)
-            </label>
-            <input id="discHigh" type="number" step="0.1" />
-          </div>
-          <div class="field">
-            <label for="outputAssumptions" data-tooltip="Any general assumptions about prices, yields, or trial design.">
-              Notes on general assumptions
-            </label>
-            <textarea id="outputAssumptions" rows="2"></textarea>
-          </div>
-        </div>
-
-        <div class="row-4">
-          <div class="field">
-            <label for="mirrFinance" data-tooltip="Finance rate used to discount negative cashflows in MIRR.">
-              MIRR finance rate (percent)
-            </label>
-            <input id="mirrFinance" type="number" step="0.1" />
-          </div>
-          <div class="field">
-            <label for="mirrReinvest" data-tooltip="Reinvestment rate applied to positive cashflows in MIRR.">
-              MIRR reinvestment rate (percent)
-            </label>
-            <input id="mirrReinvest" type="number" step="0.1" />
-          </div>
-          <div class="field"></div>
-          <div class="field"></div>
-        </div>
-
-        <h3>Discount schedule by period</h3>
-        <p class="small muted">
-          Adjust the low, base, and high discount rates used in the simulation for each period.
-        </p>
-        <div class="table-scroll">
-          <table class="summary-table">
-            <thead>
-              <tr>
-                <th>Period</th>
-                <th>Low (percent)</th>
-                <th>Base (percent)</th>
-                <th>High (percent)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>2025 to 2034</td>
-                <td><input type="number" step="0.1" data-disc-period="0" data-scenario="low" /></td>
-                <td><input type="number" step="0.1" data-disc-period="0" data-scenario="base" /></td>
-                <td><input type="number" step="0.1" data-disc-period="0" data-scenario="high" /></td>
-              </tr>
-              <tr>
-                <td>2035 to 2044</td>
-                <td><input type="number" step="0.1" data-disc-period="1" data-scenario="low" /></td>
-                <td><input type="number" step="0.1" data-disc-period="1" data-scenario="base" /></td>
-                <td><input type="number" step="0.1" data-disc-period="1" data-scenario="high" /></td>
-              </tr>
-              <tr>
-                <td>2045 to 2054</td>
-                <td><input type="number" step="0.1" data-disc-period="2" data-scenario="low" /></td>
-                <td><input type="number" step="0.1" data-disc-period="2" data-scenario="base" /></td>
-                <td><input type="number" step="0.1" data-disc-period="2" data-scenario="high" /></td>
-              </tr>
-              <tr>
-                <td>2055 to 2064</td>
-                <td><input type="number" step="0.1" data-disc-period="3" data-scenario="low" /></td>
-                <td><input type="number" step="0.1" data-disc-period="3" data-scenario="base" /></td>
-                <td><input type="number" step="0.1" data-disc-period="3" data-scenario="high" /></td>
-              </tr>
-              <tr>
-                <td>2065 to 2074</td>
-                <td><input type="number" step="0.1" data-disc-period="4" data-scenario="low" /></td>
-                <td><input type="number" step="0.1" data-disc-period="4" data-scenario="base" /></td>
-                <td><input type="number" step="0.1" data-disc-period="4" data-scenario="high" /></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3>Adoption settings</h3>
-        <p class="small muted">
-          These parameters control the adoption paths used in the results and simulation. Adoption
-          by treatment is handled here as a scenario setting rather than in the treatment tab.
-        </p>
-        <div class="row-3">
-          <div class="field">
-            <label for="adoptLow" data-tooltip="Lower bound for the share of the target area that adopts the treatment.">
-              Adoption low (multiplier)
-            </label>
-            <input id="adoptLow" type="number" step="0.05" min="0" max="1" />
-          </div>
-          <div class="field">
-            <label for="adoptBase" data-tooltip="Central assumption for the share of the target area that adopts.">
-              Adoption base (multiplier)
-            </label>
-            <input id="adoptBase" type="number" step="0.05" min="0" max="1" />
-          </div>
-          <div class="field">
-            <label for="adoptHigh" data-tooltip="Upper bound for the share of the target area that adopts.">
-              Adoption high (multiplier)
-            </label>
-            <input id="adoptHigh" type="number" step="0.05" min="0" max="1" />
-          </div>
-        </div>
-
-        <h3>Risk settings</h3>
-        <div class="row-3">
-          <div class="field">
-            <label for="riskLow" data-tooltip="Lower bound for overall risk that benefits are not fully realised.">
-              Overall risk low
-            </label>
-            <input id="riskLow" type="number" step="0.01" min="0" max="1" />
-          </div>
-          <div class="field">
-            <label for="riskBase" data-tooltip="Central estimate of overall risk that reduces effective benefits.">
-              Overall risk base
-            </label>
-            <input id="riskBase" type="number" step="0.01" min="0" max="1" />
-          </div>
-          <div class="field">
-            <label for="riskHigh" data-tooltip="Upper bound for overall risk that reduces effective benefits.">
-              Overall risk high
-            </label>
-            <input id="riskHigh" type="number" step="0.01" min="0" max="1" />
-          </div>
-        </div>
-
-        <p class="small muted">
-          You can also build the base risk from component risks below.
-        </p>
-        <div class="row-5">
-          <div class="field">
-            <label for="rTech" data-tooltip="Risk that the technical performance of the treatment is lower than expected.">
-              Technical risk
-            </label>
-            <input id="rTech" type="number" step="0.01" min="0" max="1" />
-          </div>
-          <div class="field">
-            <label for="rNonCoop" data-tooltip="Risk that farmers or partners do not cooperate or maintain practices.">
-              Non cooperation risk
-            </label>
-            <input id="rNonCoop" type="number" step="0.01" min="0" max="1" />
-          </div>
-          <div class="field">
-            <label for="rSocio" data-tooltip="Social or institutional risks that limit implementation.">
-              Social risk
-            </label>
-            <input id="rSocio" type="number" step="0.01" min="0" max="1" />
-          </div>
-          <div class="field">
-            <label for="rFin" data-tooltip="Financial risks such as budget cuts or price changes.">
-              Financial risk
-            </label>
-            <input id="rFin" type="number" step="0.01" min="0" max="1" />
-          </div>
-          <div class="field">
-            <label for="rMan" data-tooltip="Management risks including planning, staffing, and coordination.">
-              Management risk
-            </label>
-            <input id="rMan" type="number" step="0.01" min="0" max="1" />
-          </div>
-        </div>
-        <div class="row-2">
-          <div class="field">
-            <button id="calcCombinedRisk" class="btn">
-              Calculate combined base risk
-            </button>
-          </div>
-          <div class="field">
-            <div id="combinedRiskOut" class="metric" data-tooltip="Combined risk derived from the component risks above.">
-              <div class="label">Combined risk</div>
-              <div class="value small muted">Not calculated yet</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- OUTPUTS TAB -->
-    <section class="tab-panel" id="tab-outputs" data-tab-panel="outputs" aria-hidden="true">
-      <div class="card">
-        <h2>Outputs and valuation</h2>
-        <p>
-          Outputs describe the main production changes per hectare or per unit. Assign a monetary
-          value per unit to link them to benefits. For example, yield multiplied by price per tonne.
-        </p>
-        <div class="toolbar">
-          <button id="addOutput" class="btn small">Add output</button>
-        </div>
-        <div id="outputsList" class="item-list"></div>
-      </div>
-    </section>
-
-    <!-- TREATMENTS TAB -->
-    <section class="tab-panel" id="tab-treatments" data-tab-panel="treatments" aria-hidden="true">
-      <div class="card">
-        <h2>Treatments and control</h2>
-        <p>
-          Each treatment represents a defined practice or combination of practices applied to a
-          given area. Use the "Control vs treatment" field to flag the control. Adoption is handled
-          in the Settings and Simulation tabs rather than here.
-        </p>
-        <div class="toolbar">
-          <button id="addTreatment" class="btn small">Add treatment</button>
-        </div>
-        <div id="treatmentsList" class="item-list"></div>
-      </div>
-    </section>
-
-    <!-- BENEFITS TAB -->
-    <section class="tab-panel" id="tab-benefits" data-tab-panel="benefits" aria-hidden="true">
-      <div class="card">
-        <h2>Additional benefits</h2>
-        <p>
-          Use this section for cost savings, avoided losses, risk reduction, and asset value
-          changes that are not already captured in the treatment outputs.
-        </p>
-        <div class="toolbar">
-          <button id="addBenefit" class="btn small">Add benefit</button>
-        </div>
-        <div id="benefitsList" class="item-list"></div>
-      </div>
-    </section>
-
-    <!-- COSTS TAB -->
-    <section class="tab-panel" id="tab-costs" data-tab-panel="costs" aria-hidden="true">
-      <div class="card">
-        <h2>Other project costs</h2>
-        <p>
-          Enter project management, monitoring, extension, or other aggregated costs here. Capital
-          items can include depreciation information. Depreciation settings only apply to items in
-          the capital category. Labour costs at treatment level are handled in the Treatments tab.
-        </p>
-        <div class="toolbar">
-          <button id="addCost" class="btn small">Add cost item</button>
-        </div>
-        <div id="costsList" class="item-list"></div>
-      </div>
-    </section>
-
-    <!-- DATABASE TAB -->
-    <section class="tab-panel" id="tab-database" data-tab-panel="database" aria-hidden="true">
-      <div class="card">
-        <h2>Sources and database tagging</h2>
-        <p class="small muted">
-          Use this tab to record data sources that can later be linked to a shared database or
-          evidence register.
-        </p>
-
-        <h3>Outputs</h3>
-        <div id="dbOutputs" class="item-list"></div>
-
-        <h3>Treatments</h3>
-        <div id="dbTreatments" class="item-list"></div>
-      </div>
-    </section>
-
-    <!-- RESULTS TAB -->
-    <section class="tab-panel" id="tab-results" data-tab-panel="results" aria-hidden="true">
-      <div class="card">
-        <div class="results-header">
-          <h2>Economic results</h2>
-          <button id="recalc" class="btn primary" data-action="recalc">
-            Recalculate results
-          </button>
-        </div>
-
-        <h3>Whole project summary (base case)</h3>
-        <div class="row-4 metrics-grid">
-          <div class="field">
-            <label data-tooltip="Present value of all benefits across the analysis period using the base discount rate.">
-              Present value of benefits
-            </label>
-            <div class="metric">
-              <div id="pvBenefits" class="value">0</div>
-              <div class="label">All benefits, discounted</div>
-            </div>
-          </div>
-          <div class="field">
-            <label data-tooltip="Present value of all costs across the analysis period using the base discount rate.">
-              Present value of costs
-            </label>
-            <div class="metric">
-              <div id="pvCosts" class="value">0</div>
-              <div class="label">All costs, discounted</div>
-            </div>
-          </div>
-          <div class="field">
-            <label data-tooltip="Present value of benefits minus present value of costs.">
-              Net present value
-            </label>
-            <div class="metric">
-              <div id="npv" class="value">0</div>
-              <div class="label">Benefits minus costs</div>
-            </div>
-          </div>
-          <div class="field">
-            <label data-tooltip="Present value of benefits divided by present value of costs. Values greater than 1 indicate that benefits exceed costs.">
-              Benefit cost ratio
-            </label>
-            <div class="metric">
-              <div id="bcr" class="value">0</div>
-              <div class="label">PV benefits divided by PV costs</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row-4 metrics-grid">
-          <div class="field">
-            <label data-tooltip="Discount rate at which the net present value is equal to zero.">
-              Internal rate of return
-            </label>
-            <div class="metric">
-              <div id="irr" class="value">0</div>
-              <div class="label">Percent return solving NPV equal to zero</div>
-            </div>
-          </div>
-          <div class="field">
-            <label data-tooltip="Rate of return calculated using separate finance and reinvestment rates.">
-              Modified internal rate of return
-            </label>
-            <div class="metric">
-              <div id="mirr" class="value">0</div>
-              <div class="label">Uses finance and reinvestment rates</div>
-            </div>
-          </div>
-          <div class="field">
-            <label data-tooltip="Net present value expressed as a percentage of the present value of costs.">
-              Return on investment
-            </label>
-            <div class="metric">
-              <div id="roi" class="value">0</div>
-              <div class="label">NPV relative to PV of costs</div>
-            </div>
-          </div>
-          <div class="field">
-            <label data-tooltip="Number of years for the discounted net benefits to first turn positive.">
-              Payback period
-            </label>
-            <div class="metric">
-              <div id="payback" class="value">0</div>
-              <div class="label">Discounted time to recover costs</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="row-2 metrics-grid">
-          <div class="field">
-            <label data-tooltip="Average annual benefits minus annual costs across the analysis period.">
-              Annual gross margin
-            </label>
-            <div class="metric">
-              <div id="grossMargin" class="value">0</div>
-              <div class="label">Average annual benefits minus costs</div>
-            </div>
-          </div>
-          <div class="field">
-            <label data-tooltip="Annual gross margin divided by annual benefits, expressed as a percentage.">
-              Gross profit margin
-            </label>
-            <div class="metric">
-              <div id="profitMargin" class="value">0</div>
-              <div class="label">Gross margin as a share of benefits</div>
-            </div>
-          </div>
-        </div>
-
-        <hr />
-
-        <h3>Control and treatment group comparison</h3>
-        <p class="small muted">
-          Control metrics are only shown if one treatment is flagged as control in the treatments
-          tab. Treatment group metrics combine all non control treatments.
-        </p>
-        <div class="row-2">
-          <div class="card subtle">
-            <h4>Control</h4>
-            <div class="row-3 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Present value of benefits for the control treatment alone.">
-                  PV benefits
-                </label>
-                <div class="metric"><div id="pvBenefitsControl" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Present value of costs for the control treatment alone.">
-                  PV costs
-                </label>
-                <div class="metric"><div id="pvCostsControl" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Net present value for the control treatment alone.">
-                  NPV
-                </label>
-                <div class="metric"><div id="npvControl" class="value">n/a</div></div>
-              </div>
-            </div>
-            <div class="row-3 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Benefit cost ratio for the control treatment alone.">
-                  BCR
-                </label>
-                <div class="metric"><div id="bcrControl" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Internal rate of return for the control treatment alone.">
-                  IRR
-                </label>
-                <div class="metric"><div id="irrControl" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Return on investment for the control treatment alone.">
-                  ROI
-                </label>
-                <div class="metric"><div id="roiControl" class="value">n/a</div></div>
-              </div>
-            </div>
-            <div class="row-2 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Payback period for the control treatment alone.">
-                  Payback
-                </label>
-                <div class="metric"><div id="paybackControl" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Average annual gross margin for the control treatment alone.">
-                  Annual gross margin
-                </label>
-                <div class="metric"><div id="gmControl" class="value">n/a</div></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card subtle">
-            <h4>Combined treatment group</h4>
-            <div class="row-3 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Present value of benefits for all non control treatments combined.">
-                  PV benefits
-                </label>
-                <div class="metric"><div id="pvBenefitsTreat" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Present value of costs for all non control treatments combined.">
-                  PV costs
-                </label>
-                <div class="metric"><div id="pvCostsTreat" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Net present value for the combined treatment group.">
-                  NPV
-                </label>
-                <div class="metric"><div id="npvTreat" class="value">n/a</div></div>
-              </div>
-            </div>
-            <div class="row-3 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Benefit cost ratio for the combined treatment group.">
-                  BCR
-                </label>
-                <div class="metric"><div id="bcrTreat" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Internal rate of return for the combined treatment group.">
-                  IRR
-                </label>
-                <div class="metric"><div id="irrTreat" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Return on investment for the combined treatment group.">
-                  ROI
-                </label>
-                <div class="metric"><div id="roiTreat" class="value">n/a</div></div>
-              </div>
-            </div>
-            <div class="row-2 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Payback period for the combined treatment group.">
-                  Payback
-                </label>
-                <div class="metric"><div id="paybackTreat" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Average annual gross margin for the combined treatment group.">
-                  Annual gross margin
-                </label>
-                <div class="metric"><div id="gmTreat" class="value">n/a</div></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <hr />
-
-        <h3>Ranking of treatments</h3>
-        <p class="small muted" data-tooltip="Treatments are ordered from highest to lowest benefit cost ratio using the base case assumptions.">
-          Treatments are ranked by benefit cost ratio using the current base case assumptions.
-        </p>
-        <div id="treatmentSummary" class="item-list"></div>
-
-        <hr />
-
-        <h3>Net present value by analysis horizon</h3>
-        <div class="row-2">
-          <div class="field">
-            <div class="table-scroll">
-              <table id="timeProjectionTable" class="summary-table">
-                <thead>
-                  <tr>
-                    <th data-tooltip="Number of years included in the partial analysis.">Years</th>
-                    <th data-tooltip="Present value of benefits for the given analysis horizon.">PV benefits</th>
-                    <th data-tooltip="Present value of costs for the given analysis horizon.">PV costs</th>
-                    <th data-tooltip="Net present value for the given analysis horizon.">NPV</th>
-                    <th data-tooltip="Benefit cost ratio for the given analysis horizon.">BCR</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-          <div class="field">
-            <canvas id="timeNpvChart" width="480" height="260" data-tooltip="Line chart of net present value against analysis horizon."></canvas>
-          </div>
-        </div>
-
-        <hr />
-
-        <h3>Depreciation summary for capital items</h3>
-        <div id="depSummary"></div>
-
-        <div class="results-footer">
-          <button id="exportCsv" class="btn">Export CSV</button>
-          <button id="exportPdf" class="btn ghost">Print or export PDF</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- SIMULATION TAB -->
-    <section class="tab-panel" id="tab-simulation" data-tab-panel="simulation" aria-hidden="true">
-      <div class="card">
-        <div class="results-header">
-          <h2>Monte Carlo simulation</h2>
-          <button id="runSim" class="btn primary" data-action="run-sim">
-            Run simulation
-          </button>
-        </div>
-
-        <p class="small muted">
-          The simulation varies discount rates, adoption, risk, and optional cost and benefit
-          inputs within the ranges set in the Settings tab. This allows you to see how sensitive
-          the results are to key assumptions.
-        </p>
-
-        <div class="row-4">
-          <div class="field">
-            <label for="simN" data-tooltip="Number of random draws used in the Monte Carlo simulation. Larger values give smoother results but take longer.">
-              Number of runs
-            </label>
-            <input id="simN" type="number" min="100" step="100" />
-          </div>
-          <div class="field">
-            <label for="targetBCR" data-tooltip="Benefit cost ratio threshold used to define a successful outcome.">
-              Target BCR for success
-            </label>
-            <input id="targetBCR" type="number" step="0.1" min="0" />
-            <div class="small muted">
-              Current target: <span id="simBcrTargetLabel">2</span>
-            </div>
-          </div>
-          <div class="field">
-            <label for="bcrMode" data-tooltip="Choice of whether the benefit cost ratio divides by all costs or only constrained costs.">
-              BCR denominator
-            </label>
-            <select id="bcrMode">
-              <option value="all">All costs</option>
-              <option value="constrained">Constrained costs only</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="randSeed" data-tooltip="Optional random seed to reproduce the same simulation results. Leave blank for a different draw each time.">
-              Random seed (optional)
-            </label>
-            <input id="randSeed" type="number" />
-          </div>
-        </div>
-
-        <h3>Variation settings</h3>
-        <div class="row-4">
-          <div class="field">
-            <label for="simVarPct" data-tooltip="Size of the random variation applied to selected inputs, expressed as a percentage.">
-              Variation size (percent)
-            </label>
-            <input id="simVarPct" type="number" step="1" min="0" max="100" />
-          </div>
-          <div class="field">
-            <label for="simVaryOutputs" data-tooltip="If yes, output prices or values are randomly varied within the chosen range.">
-              Vary output values
-            </label>
-            <select id="simVaryOutputs">
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="simVaryTreatCosts" data-tooltip="If yes, treatment level costs are randomly varied within the chosen range.">
-              Vary treatment costs
-            </label>
-            <select id="simVaryTreatCosts">
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="simVaryInputCosts" data-tooltip="If yes, other project costs (for example management) are randomly varied within the chosen range.">
-              Vary other project costs
-            </label>
-            <select id="simVaryInputCosts">
-              <option value="true">Yes</option>
-              <option value="false">No</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="field">
-          <div id="simStatus" class="small muted">Simulation not run yet.</div>
-        </div>
-
-        <hr />
-
-        <h3>Simulation summary</h3>
-        <div class="row-2">
-          <div class="card subtle">
-            <h4>Net present value</h4>
-            <div class="row-4 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Minimum simulated net present value across all runs.">
-                  Minimum
-                </label>
-                <div class="metric"><div id="simNpvMin" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Maximum simulated net present value across all runs.">
-                  Maximum
-                </label>
-                <div class="metric"><div id="simNpvMax" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Average net present value across all simulation runs.">
-                  Mean
-                </label>
-                <div class="metric"><div id="simNpvMean" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Median net present value across all simulation runs.">
-                  Median
-                </label>
-                <div class="metric"><div id="simNpvMedian" class="value">n/a</div></div>
-              </div>
-            </div>
-            <div class="row-2 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Share of simulation runs where net present value is greater than zero.">
-                  Probability NPV &gt; 0
-                </label>
-                <div class="metric"><div id="simNpvProb" class="value">n/a</div></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card subtle">
-            <h4>Benefit cost ratio</h4>
-            <div class="row-4 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Minimum simulated benefit cost ratio across all runs.">
-                  Minimum
-                </label>
-                <div class="metric"><div id="simBcrMin" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Maximum simulated benefit cost ratio across all runs.">
-                  Maximum
-                </label>
-                <div class="metric"><div id="simBcrMax" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Average benefit cost ratio across all simulation runs.">
-                  Mean
-                </label>
-                <div class="metric"><div id="simBcrMean" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Median benefit cost ratio across all simulation runs.">
-                  Median
-                </label>
-                <div class="metric"><div id="simBcrMedian" class="value">n/a</div></div>
-              </div>
-            </div>
-            <div class="row-3 metrics-grid">
-              <div class="field">
-                <label data-tooltip="Share of simulation runs where the benefit cost ratio is greater than 1.">
-                  Probability BCR &gt; 1
-                </label>
-                <div class="metric"><div id="simBcrProb1" class="value">n/a</div></div>
-              </div>
-              <div class="field">
-                <label data-tooltip="Share of simulation runs where the benefit cost ratio exceeds the target value.">
-                  Probability BCR &gt; target
-                </label>
-                <div class="metric"><div id="simBcrProbTarget" class="value">n/a</div></div>
-              </div>
-              <div class="field"></div>
-            </div>
-          </div>
-        </div>
-
-        <hr />
-
-        <h3>Distributions</h3>
-        <div class="row-2">
-          <div class="field">
-            <canvas id="histNpv" width="480" height="260" data-tooltip="Histogram of simulated net present value."></canvas>
-          </div>
-          <div class="field">
-            <canvas id="histBcr" width="480" height="260" data-tooltip="Histogram of simulated benefit cost ratio."></canvas>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- EXCEL TAB -->
-    <section class="tab-panel" id="tab-excel" data-tab-panel="excel" aria-hidden="true">
-      <div class="card">
-        <h2>Excel import and export</h2>
-        <p>
-          You can export a template or a sample workbook, populate it in Excel, and import it back
-          into the tool. The default template and sample include a faba bean raw data sheet so that
-          the trial can be reproduced and extended.
-        </p>
-
-        <div class="row-2">
-          <div class="field">
-            <h3>Templates</h3>
-            <button id="downloadTemplate" class="btn">Download blank template</button>
-            <button id="downloadSample" class="btn ghost">
-              Download sample based on current scenario
-            </button>
-          </div>
-          <div class="field">
-            <h3>Import from Excel</h3>
-            <p class="small muted">
-              First parse the workbook, then commit the parsed data into the model once you are
-              satisfied that the structure is read correctly. The tool looks for a faba bean sheet
-              and will update the treatments from that data if present.
+    <main class="tab-panels">
+      <!-- Overview -->
+      <section id="tab-intro" class="tab-panel active" aria-labelledby="Overview">
+        <div class="page">
+          <section class="card">
+            <h1>What this tool does</h1>
+            <p>
+              This tool helps farmers and advisers compare trial treatments against a clear control. It uses a simple economic engine that turns yield differences and costs into familiar indicators such as net present value, return on investment and the benefit to cost ratio.
             </p>
-            <button id="parseExcel" class="btn">Parse Excel file</button>
-            <button id="importExcel" class="btn ghost">
-              Apply parsed Excel data to the model
-            </button>
-          </div>
-        </div>
-
-        <p class="small muted">
-          Excel import and export features rely on the SheetJS XLSX library loaded in the page. If
-          the library is not present, the tool will prompt you.
-        </p>
-      </div>
-    </section>
-
-    <!-- COPILOT TAB -->
-    <section class="tab-panel" id="tab-copilot" data-tab-panel="copilot" aria-hidden="true">
-      <div class="card">
-        <h2>Policy brief helper</h2>
-        <p>
-          This tab prepares a structured summary that can be copied into a separate AI assistant to
-          draft a policy note or briefing. The content reflects the current settings and results.
-        </p>
-        <div class="row-2">
-          <div class="field">
-            <button id="openCopilot" class="btn primary">
-              Copy scenario summary for policy brief
-            </button>
-            <p class="small muted">
-              Clicking this button copies a structured scenario description to your clipboard. Paste
-              it into your preferred assistant and ask for a policy brief that fits your audience.
+            <p>
+              The default faba beans trial data is already loaded. You can upload your own file later or paste data into the tool. All results are always shown relative to a control, so it is clear which treatment performs better and by how much.
             </p>
-          </div>
-          <div class="field">
-            <label for="copilotPreview" data-tooltip="Structured JSON style summary that is copied when you click the button.">
-              Preview of JSON payload
-            </label>
-            <textarea id="copilotPreview" rows="12" readonly class="mono"></textarea>
-          </div>
-        </div>
-      </div>
-    </section>
+          </section>
 
-    <!-- TECHNICAL APPENDIX TAB -->
-    <section class="tab-panel" id="tab-appendix" data-tab-panel="appendix" aria-hidden="true">
-      <div class="card">
-        <h2>Technical appendix and user guide</h2>
-        <p>
-          The technical appendix provides a full description of the faba bean example dataset,
-          formulas for all indicators, and step by step guidance for both non technical and
-          technical audiences.
-        </p>
-        <div class="row-2">
-          <div class="field">
-            <button
-              type="button"
-              class="btn primary"
-              onclick="window.open('technical-appendix.html','_blank','noopener');"
-            >
-              Open full technical appendix
-            </button>
-            <p class="small muted">
-              This opens the appendix in a separate browser tab or window so you can read the
-              details while keeping your scenario open here.
+          <section class="card">
+            <h2>How to use the tool in five short steps</h2>
+            <p><strong>First</strong>, look at the Results tab. The control and all treatments are compared side by side. The table shows present value of benefits, present value of costs, net present value, benefit to cost ratio and return on investment.</p>
+            <p><strong>Second</strong>, move to the Data and checks tab if you want to see the raw data. You can upload a tab separated or comma separated file, or paste data directly. The tool will run basic checks and give clear messages if something looks unusual.</p>
+            <p><strong>Third</strong>, use the Treatments and yields tab to see how each treatment performs on yield and cost before discounting. This view is useful when you want to check that the averages and differences look sensible.</p>
+            <p><strong>Fourth</strong>, visit the Configuration and scenarios tab. Here you can set the price per unit of output, the analysis horizon in years and the discount rate. You can save full scenarios to your browser so that you can return to them later.</p>
+            <p><strong>Fifth</strong>, explore the Sensitivity and AI briefing tabs. Sensitivity shows how results change when prices and discount rates move. The AI briefing tab prepares a clean narrative that you can copy into your preferred assistant to create a policy brief or farmer report.</p>
+          </section>
+
+          <section class="card">
+            <h2>Key ideas in plain language</h2>
+            <p>
+              The control is treated as the baseline. For each treatment, the tool calculates how much extra output is produced relative to the control and then multiplies this difference by the price per unit. It also allows for capital and variable costs. Future streams of costs and benefits are discounted using a rate that you can change.
             </p>
-          </div>
-          <div class="field">
-            <label class="small muted">
-              If the button does not work in your browser you can also use this link.
-            </label>
-            <a href="technical-appendix.html" target="_blank" rel="noopener" class="small">
-              Open technical-appendix.html in a new tab
-            </a>
-          </div>
+            <p>
+              The tool is designed for a world where farmers, advisers and policy makers want a clear picture of value but do not want to work through complex spreadsheets. All steps are transparent and the Technical appendix tab explains the main formulas in more detail.
+            </p>
+          </section>
         </div>
-      </div>
-    </section>
-  </main>
+      </section>
 
-  <footer class="app-footer">
-    <div class="footer-left">
-      <span class="small muted">Farming CBA Decision Aid, Newcastle Business School</span>
-    </div>
-    <div class="footer-right">
-      <button id="exportCsvFoot" class="btn small">Export CSV</button>
-      <button id="exportPdfFoot" class="btn small ghost">Print or PDF</button>
-    </div>
-  </footer>
+      <!-- Data and checks -->
+      <section id="tab-data" class="tab-panel" aria-labelledby="Data and checks">
+        <div class="page">
+          <section class="card">
+            <h2>Data import and validation</h2>
+            <p class="small muted">
+              The default faba beans trial data is already in the tool. You can replace it by uploading a file or pasting new data. The tool accepts tab separated values, comma separated values and simple trial files with a short data dictionary at the top.
+            </p>
 
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="app.js"></script>
+            <div class="grid two-col" style="margin-top:10px;">
+              <div>
+                <h3>Upload a file</h3>
+                <div class="field-group">
+                  <div class="field-row">
+                    <label for="fileInput">Select a tab or comma separated file</label>
+                    <input id="fileInput" type="file" accept=".txt,.tsv,.csv" />
+                  </div>
+                  <div class="field-row">
+                    <button type="button" class="btn btn-primary" id="btnUseDefault">
+                      Reload default trial data
+                    </button>
+                  </div>
+                </div>
+                <p class="small muted">
+                  The tool looks for columns that describe replicate, treatment, control flag, yield and costs. Extra columns are safely ignored but can still be exported back to you.
+                </p>
+              </div>
+
+              <div>
+                <h3>Paste data</h3>
+                <div class="field-group">
+                  <div class="field-row">
+                    <label for="pasteInput">Paste rows here (tab or comma separated)</label>
+                    <textarea id="pasteInput" placeholder="Paste your data here. Include a single header row."></textarea>
+                  </div>
+                  <div class="field-row">
+                    <button type="button" class="btn btn-strong" id="btnParsePaste">
+                      Replace data with pasted content
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="import-summary" id="importSummary" role="status" aria-live="polite" style="margin-top:10px;">
+              Default trial dataset is active. The tool has detected the control treatment and has calculated basic summaries.
+            </div>
+
+            <div id="dataChecks" aria-label="Data quality checks"></div>
+          </section>
+
+          <section class="card">
+            <h2>Variable names found in the file</h2>
+            <p class="small muted">
+              This table lists the key variables that the tool uses. If a field is missing, the tool will still run but with a simpler calculation.
+            </p>
+            <div id="variableSummary"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Treatments and yields -->
+      <section id="tab-treatments" class="tab-panel" aria-labelledby="Treatments and yields">
+        <div class="page">
+          <section class="card">
+            <h2>Average yields and costs by treatment</h2>
+            <p class="small muted">
+              These summaries are based on the raw data. The tool groups plots by treatment and, where possible, uses replicate specific control baselines. The economic engine in the Results tab builds on these numbers.
+            </p>
+            <div id="treatmentsList"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Configuration and scenarios -->
+      <section id="tab-config" class="tab-panel" aria-labelledby="Configuration and scenarios">
+        <div class="page">
+          <section class="card">
+            <h2>Economic settings</h2>
+            <p class="small muted">
+              These settings control how costs and benefits are turned into present values. They can differ by region and farm and can be saved as named scenarios in your browser.
+            </p>
+
+            <div class="grid two-col" style="margin-top:10px;">
+              <div class="field-group">
+                <div class="field-row">
+                  <label for="pricePerUnit">Price per unit of output</label>
+                  <input id="pricePerUnit" type="number" min="0" step="0.01" value="600" />
+                  <span class="small muted">For example, price per tonne of grain.</span>
+                </div>
+
+                <div class="field-row">
+                  <label for="horizonYears">Analysis horizon in years</label>
+                  <input id="horizonYears" type="number" min="1" step="1" value="10" />
+                  <span class="small muted">The number of years for which the treatment is expected to have an effect.</span>
+                </div>
+
+                <div class="field-row">
+                  <label for="discountRate">Discount rate (percent per year)</label>
+                  <input id="discountRate" type="number" min="0" step="0.1" value="6" />
+                  <span class="small muted">Used to bring future costs and benefits back to present values.</span>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <div class="field-row">
+                  <label>Discount rate range for sensitivity (percent per year)</label>
+                  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+                    <div>
+                      <label for="discountLow" class="small">Low</label>
+                      <input id="discountLow" type="number" min="0" step="0.1" value="4" />
+                    </div>
+                    <div>
+                      <label for="discountBase" class="small">Base</label>
+                      <input id="discountBase" type="number" min="0" step="0.1" value="6" />
+                    </div>
+                    <div>
+                      <label for="discountHigh" class="small">High</label>
+                      <input id="discountHigh" type="number" min="0" step="0.1" value="8" />
+                    </div>
+                  </div>
+                  <span class="small muted">Used in the Sensitivity tab. The Results tab uses the main discount rate above.</span>
+                </div>
+
+                <div class="field-row">
+                  <label>Price range for sensitivity (multipliers)</label>
+                  <div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;">
+                    <div>
+                      <label for="priceLow" class="small">Low</label>
+                      <input id="priceLow" type="number" min="0" step="0.05" value="0.8" />
+                    </div>
+                    <div>
+                      <label for="priceBase" class="small">Base</label>
+                      <input id="priceBase" type="number" min="0" step="0.05" value="1" />
+                    </div>
+                    <div>
+                      <label for="priceHigh" class="small">High</label>
+                      <input id="priceHigh" type="number" min="0" step="0.05" value="1.2" />
+                    </div>
+                  </div>
+                  <span class="small muted">Prices are multiplied by these factors in the Sensitivity tab.</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="commit-row">
+              <div class="button-row">
+                <button type="button" class="btn btn-strong" id="btnApplyConfig">Apply settings</button>
+                <button type="button" class="btn btn-ghost" id="btnResetConfig">Reset to default</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Save and load scenarios</h2>
+            <p class="small muted">
+              A scenario stores the current data and economic settings in your browser. This is useful when you want to compare different price and discount rate combinations or different versions of the trial.
+            </p>
+
+            <div class="grid two-col" style="margin-top:10px;">
+              <div class="field-group">
+                <div class="field-row">
+                  <label for="scenarioName">Scenario name</label>
+                  <input id="scenarioName" type="text" placeholder="For example, base prices north region" />
+                </div>
+                <div class="field-row">
+                  <div class="button-row">
+                    <button type="button" class="btn btn-primary" id="btnSaveScenario">Save scenario</button>
+                    <button type="button" class="btn" id="btnDeleteScenario">Delete selected scenario</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-group">
+                <div class="field-row">
+                  <label for="scenarioSelect">Saved scenarios in this browser</label>
+                  <select id="scenarioSelect"></select>
+                </div>
+                <div class="field-row">
+                  <button type="button" class="btn btn-strong" id="btnLoadScenario">
+                    Load selected scenario
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p class="small muted" style="margin-top:8px;">
+              Scenarios are stored only on this device and browser. Clearing your browser storage will remove them.
+            </p>
+          </section>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section id="tab-results" class="tab-panel" aria-labelledby="Results">
+        <div class="page">
+          <section class="card">
+            <h2>Snapshot of economic performance</h2>
+            <p class="small muted">
+              The table below ranks treatments based on net present value using the current price and discount rate. The control appears in the list so that you can see how far other options move away from the baseline.
+            </p>
+
+            <div class="results-controls" style="margin-top:8px;">
+              <div class="quick-filters">
+                <span class="label">Quick filters</span>
+              </div>
+              <div class="button-row">
+                <button type="button" class="btn" id="filterShowAll">Show all treatments</button>
+                <button type="button" class="btn" id="filterTopNPV">Top five by net present value</button>
+                <button type="button" class="btn" id="filterTopBCR">Top five by benefit to cost ratio</button>
+                <button type="button" class="btn" id="filterOnlyBetter">Show only treatments that beat the control</button>
+              </div>
+            </div>
+
+            <div id="resultsLeaderboard"></div>
+          </section>
+
+          <section class="card">
+            <h2>Comparison to control</h2>
+            <p class="small muted">
+              Economic indicators are listed down the left hand side. The control and all treatments appear as columns. Changes in net present value and present value of costs relative to the control are highlighted in green or red so that gains and losses are easy to read.
+            </p>
+
+            <div class="results-exports">
+              <button type="button" class="btn btn-primary" id="btnExportClean">Export cleaned dataset as TSV</button>
+              <button type="button" class="btn btn-primary" id="btnExportTreatments">Export treatment results as CSV</button>
+              <button type="button" class="btn" id="btnExportSensitivity">Export sensitivity grid as CSV</button>
+              <button type="button" class="btn" id="btnExportExcel">Export workbook for Excel</button>
+            </div>
+
+            <div id="comparisonToControl"></div>
+
+            <div style="margin-top:10px;">
+              <label for="resultsNarrative" class="small muted">Plain language interpretation</label>
+              <div id="resultsNarrative" class="narrative-block"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Sensitivity -->
+      <section id="tab-sensitivity" class="tab-panel" aria-labelledby="Sensitivity">
+        <div class="page">
+          <section class="card">
+            <h2>Sensitivity to prices and discount rates</h2>
+            <p class="small muted">
+              This section explores how net present value changes when the discount rate and price per unit move within the ranges set under Configuration and scenarios. The summary focuses on the control and on the top few treatments from the main results.
+            </p>
+            <div id="sensitivitySummary"></div>
+          </section>
+        </div>
+      </section>
+
+      <!-- AI briefing -->
+      <section id="tab-ai" class="tab-panel" aria-labelledby="AI briefing">
+        <div class="page">
+          <section class="card">
+            <h2>AI ready briefing text</h2>
+            <p class="small muted">
+              The text and data below are prepared so that you can copy them into your preferred assistant. They describe the trial, the settings and the main findings in a way that supports preparation of a short report or policy brief. You can edit the text before copying if you wish.
+            </p>
+
+            <div class="field-group" style="margin-top:8px;">
+              <div class="field-row">
+                <label for="aiBriefingText">Narrative for an assistant</label>
+                <textarea id="aiBriefingText"></textarea>
+              </div>
+              <div class="field-row">
+                <button type="button" class="btn btn-primary" id="btnCopyAiBriefing">Copy briefing text</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <h2>Structured results for an assistant</h2>
+            <p class="small muted">
+              This section contains a compact data block that summarises the main indicators by treatment. It is suitable for copy and paste into an assistant that accepts structured input.
+            </p>
+
+            <div class="field-group" style="margin-top:8px;">
+              <div class="field-row">
+                <label for="resultsJson">Compact structured data</label>
+                <textarea id="resultsJson"></textarea>
+              </div>
+              <div class="field-row">
+                <button type="button" class="btn" id="btnCopyResultsJson">Copy structured data</button>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <!-- Technical appendix -->
+      <section id="tab-appendix" class="tab-panel" aria-labelledby="Technical appendix">
+        <div class="page">
+          <section class="card">
+            <h2>Technical notes in plain language</h2>
+            <p>
+              The tool treats the control as the baseline. For each replicate, it finds the plots that belong to the control and uses their yields as the reference for that replicate. For every other treatment and replicate, it calculates the difference in yield relative to the control within that replicate.
+            </p>
+            <p>
+              For each treatment, the tool averages these replicate level differences to obtain an expected change in yield per unit of land. This change is then multiplied by the price per unit of output to give an annual benefit per unit of land. Capital costs are treated as taking place in year zero and are not discounted. Variable costs are treated as annual and are discounted.
+            </p>
+            <p>
+              The present value of an annual stream of benefits over a fixed number of years is calculated using a standard discounting formula. If the discount rate is positive, the present value factor is one minus one divided by one plus the rate to the power of the number of years, all divided by the rate. If the discount rate is set to zero, the tool uses a simple rule that multiplies the annual flow by the number of years.
+            </p>
+            <p>
+              Net present value is defined as the present value of benefits minus the present value of costs. The benefit to cost ratio is the present value of benefits divided by the present value of costs when costs are positive. Return on investment is defined as net present value divided by the present value of costs when costs are positive. All indicators are calculated for the control and for each treatment.
+            </p>
+            <p>
+              The sensitivity analysis repeats these calculations across combinations of discount rates and price multipliers. This makes it easier to see whether a treatment remains attractive when discount rates are higher or when prices fall. The comparison to control table includes changes in net present value and changes in present value of costs so that it is easier to see whether a treatment wins mainly through higher benefits or lower costs.
+            </p>
+            <p>
+              The default trial dataset is included for demonstration. When you upload your own data, the tool expects variables for replicate, treatment name, a flag that marks the control, yield and at least one of capital cost or variable cost. Extra variables are safely preserved in the cleaned export file.
+            </p>
+            <p class="small muted">
+              These formulas are widely used in applied cost benefit analysis across agriculture, health and infrastructure. They were selected to match guidance from common international practice while remaining easy to explain to farmers and local decision makers.
+            </p>
+          </section>
+
+          <section class="card">
+            <h2>Technical appendix in a separate window</h2>
+            <p>
+              If you prefer to read the technical appendix in a separate window, you can open a print friendly view. This is useful when you want to share the methods section with colleagues or attach it to a report.
+            </p>
+            <div class="button-row">
+              <button type="button" class="btn" id="btnOpenAppendixWindow">Open appendix in new window</button>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Toast host -->
+  <div class="toast-host" id="toastHost" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Default dataset as hidden block (tab separated) -->
+  <textarea id="defaultDataset" style="display:none;">
+replicate	treatment	is_control	yield	variable_cost	capital_cost
+R1	Control	1	2.40	120	0
+R1	High fertiliser	0	2.95	180	40
+R1	Improved variety	0	3.05	160	60
+R1	Combined package	0	3.40	210	80
+R2	Control	1	2.55	115	0
+R2	High fertiliser	0	3.10	178	40
+R2	Improved variety	0	3.20	162	60
+R2	Combined package	0	3.55	208	80
+R3	Control	1	2.35	118	0
+R3	High fertiliser	0	2.90	182	40
+R3	Improved variety	0	3.00	164	60
+R3	Combined package	0	3.38	212	80
+  </textarea>
 </body>
 </html>
