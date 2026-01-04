@@ -1,2128 +1,1470 @@
-// app.js
-// Farming CBA Decision Tool - Newcastle Business School
-// World Bank style control centric cost benefit engine with:
-// - Full trial dataset loaded from faba_beans_trial_clean_named.tsv when available
-// - Upload and paste import pipeline with careful validation
-// - Replicate based control baselines where possible
-// - Discounted total benefits, total costs, net profit, benefit per dollar spent and return on investment
-// - Comparison to control view with clear green and red cues
-// - Sensitivity grid over discount rates and price multipliers
-// - Scenario save and load with localStorage
-// - Workbook and CSV exports
-// - AI ready narrative and compact data block
-// - Chart views for net profit, benefits and costs, and sensitivity
-// - Bottom right toast messages for key actions
+// Farming CBA Decision Aid — Newcastle Business School
+// Full upgrade using the real faba beans trial dataset.
+// - Automatically loads faba_beans_trial_clean_named.tsv on start.
+// - Uses all rows and columns; no sampling or removal.
+// - Detects key columns, including replicate_id, treatment_name, is_control,
+//   yield_t_ha, total_cost_per_ha (variable cost proxy), and
+//   cost_amendment_input_per_ha (capital cost proxy).
+// - Treats the measured control as the baseline for all comparisons.
+// - Presents a control-centric comparison table with plain-language labels.
+// - Provides leaderboard, charts, exports (TSV/CSV/XLSX), and AI summary prompt.
 
 (() => {
   "use strict";
 
-  const SCENARIO_KEY = "farmingCbaScenarios_v1";
+  // =========================
+  // 0) STATE
+  // =========================
 
   const state = {
     rawText: "",
-    header: [],
+    headers: [],
     rows: [],
-    columns: {},
-    treatments: [],
+    columnMap: null,
+    treatments: [], // aggregated per treatment
     controlName: null,
-    config: {
-      pricePerUnit: 600,
-      horizonYears: 10,
-      discountRate: 0.06,
-      discountLow: 0.04,
-      discountBase: 0.06,
-      discountHigh: 0.08,
-      priceLow: 0.8,
-      priceBase: 1.0,
-      priceHigh: 1.2
+    params: {
+      pricePerTonne: 500,
+      years: 10,
+      persistenceYears: 10,
+      discountRate: 5
     },
-    results: null,
-    sensitivity: null,
-    scenarios: []
+    results: {
+      treatments: [],
+      control: null
+    },
+    charts: {
+      netProfitDelta: null,
+      costsBenefits: null
+    }
   };
 
-  let npvChart = null;
-  let costChart = null;
-  let sensitivityChart = null;
+  // =========================
+  // 1) UTILITIES
+  // =========================
 
-  // ======================
-  // Helper: toast messages
-  // ======================
-
-  function showToast(message, type = "success") {
-    const host = document.getElementById("toastHost");
-    if (!host) return;
-
+  function showToast(message, type = "info", timeoutMs = 3200) {
+    const container = document.getElementById("toastContainer");
+    if (!container) return;
     const toast = document.createElement("div");
-    toast.className = "toast " + (type === "error" ? "toast-error" : "toast-success");
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+      <div>${message}</div>
+      <button class="toast-dismiss" aria-label="Dismiss">&times;</button>
+    `;
+    container.appendChild(toast);
 
-    const span = document.createElement("span");
-    span.className = "toast-message";
-    span.textContent = message;
-
-    const close = document.createElement("button");
-    close.className = "toast-close";
-    close.type = "button";
-    close.textContent = "×";
-    close.addEventListener("click", () => {
-      toast.style.animation = "toast-out 0.14s ease-in forwards";
-      setTimeout(() => toast.remove(), 140);
-    });
-
-    toast.appendChild(span);
-    toast.appendChild(close);
-    host.appendChild(toast);
-
-    setTimeout(() => {
-      if (!toast.isConnected) return;
-      toast.style.animation = "toast-out 0.14s ease-in forwards";
-      setTimeout(() => toast.remove(), 160);
-    }, 3500);
-  }
-
-  // ======================
-  // Helper: tabs
-  // ======================
-
-  function initTabs() {
-    const tabs = document.querySelectorAll(".tab");
-    const panels = document.querySelectorAll(".tab-panel");
-
-    if (!tabs.length || !panels.length) return;
-
-    const activate = (targetId) => {
-      panels.forEach((panel) => {
-        panel.classList.toggle("active", panel.id === targetId);
-      });
-      tabs.forEach((tab) => {
-        tab.classList.toggle("active", tab.dataset.tabTarget === targetId);
-      });
+    const remove = () => {
+      if (!toast.parentElement) return;
+      toast.style.opacity = "0";
+      toast.style.transform = "translateY(4px)";
+      setTimeout(() => {
+        if (toast.parentElement) {
+          toast.parentElement.removeChild(toast);
+        }
+      }, 150);
     };
 
-    tabs.forEach((tab) => {
-      tab.addEventListener("click", () => {
-        const targetId = tab.dataset.tabTarget;
-        if (!targetId) return;
-        activate(targetId);
-      });
-    });
+    toast.querySelector(".toast-dismiss").addEventListener("click", remove);
+    setTimeout(remove, timeoutMs);
+  }
 
-    const firstTab = tabs[0];
-    if (firstTab) {
-      activate(firstTab.dataset.tabTarget);
+  function parseNumber(value) {
+    if (value === null || value === undefined) return NaN;
+    if (typeof value === "number") return Number.isFinite(value) ? value : NaN;
+    const trimmed = String(value).trim();
+    if (!trimmed) return NaN;
+    const cleaned = trimmed.replace(/,/g, "");
+    const num = Number(cleaned);
+    return Number.isFinite(num) ? num : NaN;
+  }
+
+  function parseBoolean(value) {
+    if (value === null || value === undefined) return false;
+    const s = String(value).trim().toLowerCase();
+    return s === "true" || s === "1" || s === "yes" || s === "y";
+  }
+
+  function discountFactorSum(discountRatePct, years) {
+    const r = discountRatePct / 100;
+    if (years <= 0) return 0;
+    if (r === 0) return years;
+    let sum = 0;
+    for (let t = 1; t <= years; t++) {
+      sum += 1 / Math.pow(1 + r, t);
     }
+    return sum;
   }
 
-  // ======================
-  // Helper: parsing
-  // ======================
-
-  function normaliseName(name) {
-    return String(name || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "_");
-  }
-
-  function detectDelimiter(line) {
-    if (!line) return "\t";
-    const tabCount = (line.match(/\t/g) || []).length;
-    const commaCount = (line.match(/,/g) || []).length;
-    if (tabCount >= commaCount) return "\t";
-    return ",";
-  }
-
-  function parseTabular(text) {
-    const cleaned = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
-    if (!cleaned) {
-      return { header: [], rows: [], delimiter: "\t" };
-    }
-
-    const lines = cleaned.split("\n").filter((l) => l.trim().length > 0);
-
-    let headerIndex = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-      if (/\breplicate\b/i.test(line) && /\btreatment\b/i.test(line)) {
-        headerIndex = i;
-        break;
+  function meanIgnoringNaN(values) {
+    if (!values || values.length === 0) return NaN;
+    let sum = 0;
+    let n = 0;
+    for (const v of values) {
+      const x = parseNumber(v);
+      if (!Number.isNaN(x)) {
+        sum += x;
+        n++;
       }
     }
+    return n === 0 ? NaN : sum / n;
+  }
 
-    const headerLine = lines[headerIndex];
-    const delimiter = detectDelimiter(headerLine);
-    const headerRaw = headerLine.split(delimiter);
-    const header = headerRaw.map((h) => h.trim());
+  function formatCurrency(value) {
+    if (value === null || value === undefined || Number.isNaN(value)) return "–";
+    try {
+      return new Intl.NumberFormat("en-AU", {
+        style: "currency",
+        currency: "AUD",
+        maximumFractionDigits: Math.abs(value) < 1000 ? 2 : 0
+      }).format(value);
+    } catch (_) {
+      return value.toFixed(0);
+    }
+  }
 
+  function formatNumber(value, decimals = 2) {
+    if (value === null || value === undefined || Number.isNaN(value)) return "–";
+    return value.toFixed(decimals);
+  }
+
+  function clone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+  }
+
+  // =========================
+  // 2) DATA PARSING
+  // =========================
+
+  function detectDelimiter(headerLine) {
+    if (!headerLine) return "\t";
+    const tabCount = (headerLine.match(/\t/g) || []).length;
+    const commaCount = (headerLine.match(/,/g) || []).length;
+    return tabCount >= commaCount ? "\t" : ",";
+  }
+
+  function parseDelimitedText(text) {
+    const trimmed = text.replace(/\r\n/g, "\n").trim();
+    if (!trimmed) {
+      throw new Error("No data found in the provided text.");
+    }
+
+    const lines = trimmed.split("\n").filter((l) => l.trim().length > 0);
+    const delimiter = detectDelimiter(lines[0]);
+    const headers = lines[0].split(delimiter).map((h) => h.trim());
     const rows = [];
-    for (let i = headerIndex + 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!line || !line.trim()) continue;
-      const parts = line.split(delimiter);
-      if (parts.every((p) => p.trim() === "")) continue;
+
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].split(delimiter);
       const row = {};
-      header.forEach((h, idx) => {
-        row[h] = parts[idx] !== undefined ? parts[idx].trim() : "";
-      });
+      for (let j = 0; j < headers.length; j++) {
+        row[headers[j]] = j < parts.length ? parts[j] : "";
+      }
       rows.push(row);
     }
-
-    return { header, rows, delimiter };
+    return { headers, rows };
   }
 
-  function buildColumns(header) {
-    const cols = {};
-    header.forEach((h, idx) => {
-      cols[normaliseName(h)] = { index: idx, name: h };
-    });
-    return cols;
-  }
+  // Map required semantic columns to actual dataset headers
+  function detectColumnMap(headers) {
+    const lcHeaders = headers.map((h) => h.toLowerCase());
 
-  function getColumnIndex(key) {
-    const wanted = Array.isArray(key) ? key : [key];
-    for (const name of wanted) {
-      const norm = normaliseName(name);
-      if (Object.prototype.hasOwnProperty.call(state.columns, norm)) {
-        return state.columns[norm].index;
+    const findCol = (aliases) => {
+      for (const alias of aliases) {
+        const idx = lcHeaders.indexOf(alias.toLowerCase());
+        if (idx !== -1) return headers[idx];
       }
-    }
-    return -1;
+      return null;
+    };
+
+    const map = {
+      plotId: findCol(["plot_id"]),
+      replicate: findCol(["replicate_id", "replicate", "rep", "rep_no"]),
+      treatmentName: findCol(["treatment_name", "amendment_name", "treatment"]),
+      isControl: findCol(["is_control", "control_flag", "control"]),
+      yield: findCol(["yield_t_ha", "yield", "yield_t/ha"]),
+      variableCost: findCol([
+        "total_cost_per_ha",
+        "variable_cost_per_ha",
+        "total_cost_per_ha_raw"
+      ]),
+      capitalCost: findCol([
+        "capital_cost_per_ha",
+        "cost_amendment_input_per_ha"
+      ])
+    };
+
+    return map;
   }
 
-  // ======================
-  // Data import and commit
-  // ======================
+  // =========================
+  // 3) AGGREGATION & CBA
+  // =========================
 
-  function commitDataset(text, sourceLabel) {
-    const parsed = parseTabular(text);
-    state.rawText = text;
-    state.header = parsed.header;
-    state.rows = parsed.rows;
-    state.columns = buildColumns(parsed.header);
+  function aggregateTreatments() {
+    const { headers, rows } = state;
+    if (!headers.length || !rows.length) return;
 
-    detectTreatmentsAndControl();
-    const checks = buildDataChecks();
-    renderDataChecks(checks);
-    renderVariableSummary();
-    runAllCalculations();
+    const columnMap = detectColumnMap(headers);
+    state.columnMap = columnMap;
 
-    const pill = document.getElementById("datasetStatusPill");
-    if (pill) {
-      const valueSpan = pill.querySelector(".value");
-      if (valueSpan) {
-        valueSpan.textContent = sourceLabel + " loaded";
+    const summaryByName = new Map();
+    let controlNameFromFlag = null;
+
+    for (const row of rows) {
+      const tNameRaw = columnMap.treatmentName
+        ? row[columnMap.treatmentName]
+        : "";
+      const treatmentName = tNameRaw ? String(tNameRaw).trim() : "";
+      if (!treatmentName) continue;
+
+      if (!summaryByName.has(treatmentName)) {
+        summaryByName.set(treatmentName, {
+          name: treatmentName,
+          replicates: [],
+          yields: [],
+          variableCosts: [],
+          capitalCosts: [],
+          isControlFlagged: false
+        });
       }
-    }
+      const t = summaryByName.get(treatmentName);
 
-    updateImportSummary(sourceLabel, checks);
-    showToast("Data loaded from " + sourceLabel);
-  }
+      const repVal = columnMap.replicate ? row[columnMap.replicate] : null;
+      if (repVal !== null && repVal !== undefined && String(repVal).trim()) {
+        t.replicates.push(repVal);
+      }
 
-  // ======================
-  // Treatment detection
-  // ======================
-
-  function detectTreatmentsAndControl() {
-    const h = state.header;
-    const rows = state.rows;
-
-    if (!h.length || !rows.length) {
-      state.treatments = [];
-      state.controlName = null;
-      return;
-    }
-
-    const treatmentIdx = getColumnIndex(["treatment", "treatment_name", "treat"]);
-    if (treatmentIdx === -1) {
-      state.treatments = [];
-      state.controlName = null;
-      return;
-    }
-
-    const controlIdx = getColumnIndex(["is_control", "control", "control_flag"]);
-    const replicateIdx = getColumnIndex(["replicate", "rep"]);
-
-    const treatmentSet = new Set();
-    const controlSet = new Set();
-
-    rows.forEach((row) => {
-      const values = Object.values(row);
-      const treat = values[treatmentIdx] || "";
-      if (!treat) return;
-      treatmentSet.add(treat);
-      if (controlIdx !== -1) {
-        const ctrlRaw = values[controlIdx];
-        const flag = String(ctrlRaw || "")
-          .trim()
-          .toLowerCase();
-        if (flag === "1" || flag === "yes" || flag === "true" || flag === "control") {
-          controlSet.add(treat);
+      if (columnMap.yield) {
+        const y = parseNumber(row[columnMap.yield]);
+        if (!Number.isNaN(y)) t.yields.push(y);
+      }
+      if (columnMap.variableCost) {
+        const vc = parseNumber(row[columnMap.variableCost]);
+        if (!Number.isNaN(vc)) t.variableCosts.push(vc);
+      }
+      if (columnMap.capitalCost) {
+        const cc = parseNumber(row[columnMap.capitalCost]);
+        if (!Number.isNaN(cc)) t.capitalCosts.push(cc);
+      }
+      if (columnMap.isControl) {
+        const isCtrl = parseBoolean(row[columnMap.isControl]);
+        if (isCtrl) {
+          t.isControlFlagged = true;
+          controlNameFromFlag = treatmentName;
         }
       }
-    });
+    }
 
-    const treatments = Array.from(treatmentSet);
-    let controlName = null;
-
-    if (controlSet.size === 1) {
-      controlName = Array.from(controlSet)[0];
-    } else if (controlSet.size > 1) {
-      const counts = {};
-      state.rows.forEach((row) => {
-        const values = Object.values(row);
-        const treat = values[treatmentIdx] || "";
-        if (!treat) return;
-        const ctrlRaw = controlIdx !== -1 ? values[controlIdx] : "";
-        const flag = String(ctrlRaw || "")
-          .trim()
-          .toLowerCase();
-        if (flag === "1" || flag === "yes" || flag === "true" || flag === "control") {
-          counts[treat] = (counts[treat] || 0) + 1;
+    // Decide control treatment
+    let controlName = controlNameFromFlag;
+    if (!controlName) {
+      for (const [name, t] of summaryByName.entries()) {
+        if (name.toLowerCase().includes("control")) {
+          controlName = name;
+          break;
         }
+      }
+    }
+    if (!controlName && summaryByName.size > 0) {
+      controlName = summaryByName.keys().next().value;
+    }
+    state.controlName = controlName || null;
+
+    const treatments = [];
+    for (const [name, t] of summaryByName.entries()) {
+      const avgYield = meanIgnoringNaN(t.yields);
+      const avgVarCost = meanIgnoringNaN(t.variableCosts);
+      const avgCapCost = Number.isNaN(meanIgnoringNaN(t.capitalCosts))
+        ? 0
+        : meanIgnoringNaN(t.capitalCosts);
+      treatments.push({
+        name,
+        isControl: name === controlName,
+        avgYield,
+        avgVarCost,
+        avgCapCost
       });
-      let best = null;
-      let bestCount = -1;
-      Object.entries(counts).forEach(([t, c]) => {
-        if (c > bestCount) {
-          best = t;
-          bestCount = c;
-        }
-      });
-      controlName = best;
-    } else if (treatments.length) {
-      controlName = treatments[0];
     }
 
     state.treatments = treatments;
-    state.controlName = controlName;
   }
 
-  // ======================
-  // Data checks and summary
-  // ======================
+  function computeCBA() {
+    const { treatments, controlName, params } = state;
+    if (!treatments.length || !controlName) return;
 
-  function buildDataChecks() {
-    const checks = [];
-    const h = state.header;
-    const rows = state.rows;
+    const control = treatments.find((t) => t.name === controlName) || treatments[0];
 
-    if (!h.length || !rows.length) {
-      checks.push({
-        type: "error",
-        label: "No data rows found",
-        count: 0,
-        details: "Upload or paste a dataset with at least one header row and one data row."
-      });
-      return checks;
-    }
+    const price = parseNumber(params.pricePerTonne) || 0;
+    const years = Math.max(1, parseInt(params.years, 10) || 1);
+    const persistenceYears = Math.max(
+      1,
+      Math.min(years, parseInt(params.persistenceYears, 10) || years)
+    );
+    const discountRate = parseNumber(params.discountRate);
+    const factorBenefits = discountFactorSum(discountRate, persistenceYears);
+    const factorCosts = discountFactorSum(discountRate, years);
 
-    const treatmentIdx = getColumnIndex(["treatment", "treatment_name", "treat"]);
-    const replicateIdx = getColumnIndex(["replicate", "rep"]);
-    const yieldIdx = getColumnIndex(["yield", "yield_kg", "yield_t_ha"]);
-    const varCostIdx = getColumnIndex(["variable_cost", "var_cost", "cost_variable"]);
-    const capCostIdx = getColumnIndex(["capital_cost", "cap_cost", "fixed_cost"]);
+    const results = [];
+    for (const t of treatments) {
+      const avgYield = parseNumber(t.avgYield);
+      const avgVarCost = parseNumber(t.avgVarCost);
+      const avgCapCost = parseNumber(t.avgCapCost);
 
-    const missingCore = [];
-    if (treatmentIdx === -1) missingCore.push("treatment name");
-    if (yieldIdx === -1) missingCore.push("yield");
-    if (varCostIdx === -1 && capCostIdx === -1) missingCore.push("any cost field");
+      const pvBenefits = Number.isNaN(avgYield)
+        ? NaN
+        : avgYield * price * factorBenefits;
+      const pvVarCosts = Number.isNaN(avgVarCost)
+        ? NaN
+        : avgVarCost * factorCosts;
+      const pvCapCosts = Number.isNaN(avgCapCost) ? 0 : avgCapCost;
+      const pvTotalCosts =
+        Number.isNaN(pvVarCosts) && Number.isNaN(pvCapCosts)
+          ? NaN
+          : (Number.isNaN(pvVarCosts) ? 0 : pvVarCosts) + pvCapCosts;
+      const npv =
+        Number.isNaN(pvBenefits) || Number.isNaN(pvTotalCosts)
+          ? NaN
+          : pvBenefits - pvTotalCosts;
+      const bcr =
+        !Number.isNaN(pvBenefits) && pvTotalCosts > 0
+          ? pvBenefits / pvTotalCosts
+          : NaN;
+      const roi =
+        !Number.isNaN(npv) && pvTotalCosts > 0
+          ? (npv / pvTotalCosts) * 100
+          : NaN;
 
-    if (missingCore.length) {
-      checks.push({
-        type: "error",
-        label: "Key fields missing",
-        count: missingCore.length,
-        details:
-          "The following fields were not detected: " +
-          missingCore.join(", ") +
-          ". The tool can still show basic tables but the economic engine will be limited."
-      });
-    }
-
-    if (replicateIdx === -1) {
-      checks.push({
-        type: "warning",
-        label: "Replicate field missing",
-        count: 1,
-        details:
-          "No clear replicate field was found. The tool will treat the dataset as if there was one large block and will not use replicate based control baselines."
-      });
-    }
-
-    if (!state.controlName) {
-      checks.push({
-        type: "warning",
-        label: "Control not clearly identified",
-        count: 1,
-        details:
-          "There was no unique control flag. The tool has selected one treatment as the control based on the data, but you may want to check that this matches your trial design."
-      });
-    }
-
-    const yieldId = yieldIdx;
-    const varId = varCostIdx;
-    const capId = capCostIdx;
-    let missingNumeric = 0;
-    if (yieldId !== -1 || varId !== -1 || capId !== -1) {
-      rows.forEach((row) => {
-        const values = Object.values(row);
-        if (yieldId !== -1) {
-          const v = values[yieldId];
-          if (v === "" || v === "?" || isNaN(parseFloat(v))) missingNumeric++;
-        }
-        if (varId !== -1) {
-          const v = values[varId];
-          if (v === "" || v === "?" || isNaN(parseFloat(v))) missingNumeric++;
-        }
-        if (capId !== -1) {
-          const v = values[capId];
-          if (v === "" || v === "?" || isNaN(parseFloat(v))) missingNumeric++;
-        }
-      });
-    }
-
-    if (missingNumeric > 0) {
-      checks.push({
-        type: "warning",
-        label: "Missing or non numeric values",
-        count: missingNumeric,
-        details:
-          "Some yield or cost values are missing or non numeric. These rows are ignored in the calculations but kept in the cleaned export file."
-      });
-    }
-
-    checks.push({
-      type: "info",
-      label: "Row and treatment count",
-      count: rows.length,
-      details:
-        "The dataset has " +
-        rows.length +
-        " rows and " +
-        state.treatments.length +
-        " treatments. The current control is: " +
-        (state.controlName || "not set") +
-        "."
-    });
-
-    return checks;
-  }
-
-  function renderDataChecks(checks) {
-    const container = document.getElementById("dataChecks");
-    if (!container) return;
-    container.innerHTML = "";
-
-    if (!checks || !checks.length) {
-      return;
-    }
-
-    checks.forEach((check) => {
-      const div = document.createElement("div");
-      div.className = "check-row " + (check.type === "error" ? "error" : check.type === "warning" ? "warning" : "");
-      const label = document.createElement("span");
-      label.className = "check-label";
-      label.textContent = check.label;
-
-      const tag = document.createElement("span");
-      tag.className = "check-tag " + (check.type === "error" ? "error" : check.type === "warning" ? "warning" : "");
-      tag.textContent = check.type === "error" ? "Check" : check.type === "warning" ? "Notice" : "Info";
-
-      const count = document.createElement("span");
-      count.className = "check-count";
-      count.textContent = "Count: " + check.count;
-
-      const details = document.createElement("span");
-      details.className = "check-count";
-      details.textContent = check.details;
-
-      div.appendChild(label);
-      div.appendChild(tag);
-      div.appendChild(count);
-      div.appendChild(details);
-      container.appendChild(div);
-    });
-  }
-
-  function renderVariableSummary() {
-    const container = document.getElementById("variableSummary");
-    if (!container) return;
-
-    if (!state.header.length) {
-      container.innerHTML = "<p class='small muted'>No header row detected.</p>";
-      return;
-    }
-
-    const keyMap = {
-      replicate: ["replicate", "rep"],
-      treatment: ["treatment", "treatment_name", "treat"],
-      control_flag: ["is_control", "control_flag", "control"],
-      yield: ["yield", "yield_kg", "yield_t_ha"],
-      variable_cost: ["variable_cost", "var_cost", "cost_variable"],
-      capital_cost: ["capital_cost", "cap_cost", "fixed_cost"]
-    };
-
-    let html = "<table class='summary-table'><thead><tr><th>Purpose</th><th>Column used</th></tr></thead><tbody>";
-    Object.entries(keyMap).forEach(([purpose, aliases]) => {
-      const idx = getColumnIndex(aliases);
-      const used = idx === -1 ? "<span class='muted'>Not found</span>" : state.header[idx];
-      const label =
-        purpose === "replicate"
-          ? "Replicate"
-          : purpose === "treatment"
-          ? "Treatment name"
-          : purpose === "control_flag"
-          ? "Control flag"
-          : purpose === "yield"
-          ? "Yield"
-          : purpose === "variable_cost"
-          ? "Variable cost"
-          : "Capital cost";
-      html += "<tr><td>" + label + "</td><td>" + used + "</td></tr>";
-    });
-    html += "</tbody></table>";
-
-    container.innerHTML = html;
-  }
-
-  function updateImportSummary(sourceLabel, checks) {
-    const el = document.getElementById("importSummary");
-    if (!el) return;
-    const errors = checks.filter((c) => c.type === "error").length;
-    const warnings = checks.filter((c) => c.type === "warning").length;
-
-    let msg =
-      "Data loaded from " +
-      sourceLabel +
-      ". There are " +
-      errors +
-      " key issues and " +
-      warnings +
-      " warnings. Scroll down to view details.";
-    el.textContent = msg;
-  }
-
-  // ======================
-  // Economic engine
-  // ======================
-
-  function parseNumberSafe(value) {
-    if (value === null || value === undefined) return null;
-    const s = String(value).trim();
-    if (s === "" || s === "?") return null;
-    const n = parseFloat(s);
-    return isNaN(n) ? null : n;
-  }
-
-  function computeTreatmentStatistics(configOverride) {
-    const rows = state.rows;
-    const header = state.header;
-    if (!rows.length || !header.length || !state.treatments.length) {
-      return [];
-    }
-
-    const cfg = configOverride || state.config;
-
-    const treatmentIdx = getColumnIndex(["treatment", "treatment_name", "treat"]);
-    const replicateIdx = getColumnIndex(["replicate", "rep"]);
-    const yieldIdx = getColumnIndex(["yield", "yield_kg", "yield_t_ha"]);
-    const varCostIdx = getColumnIndex(["variable_cost", "var_cost", "cost_variable"]);
-    const capCostIdx = getColumnIndex(["capital_cost", "cap_cost", "fixed_cost"]);
-
-    if (treatmentIdx === -1 || yieldIdx === -1) {
-      return [];
-    }
-
-    const controlName = state.controlName;
-    const repControlYield = {};
-    if (controlName && replicateIdx !== -1) {
-      rows.forEach((row) => {
-        const values = Object.values(row);
-        const treat = values[treatmentIdx];
-        const rep = values[replicateIdx];
-        if (!treat || !rep) return;
-        if (treat !== controlName) return;
-        const y = parseNumberSafe(values[yieldIdx]);
-        if (y === null) return;
-        repControlYield[rep] = y;
-      });
-    }
-
-    const stats = {};
-    state.treatments.forEach((t) => {
-      stats[t] = {
-        treatment: t,
-        isControl: t === controlName,
-        plots: 0,
-        replicates: new Set(),
-        yields: [],
-        yieldDelta: [],
-        varCosts: [],
-        capCosts: []
-      };
-    });
-
-    rows.forEach((row) => {
-      const values = Object.values(row);
-      const treat = values[treatmentIdx];
-      if (!treat || !stats[treat]) return;
-      const st = stats[treat];
-      const rep = replicateIdx !== -1 ? values[replicateIdx] : "all";
-      const y = parseNumberSafe(values[yieldIdx]);
-      const vc = varCostIdx !== -1 ? parseNumberSafe(values[varCostIdx]) : null;
-      const cc = capCostIdx !== -1 ? parseNumberSafe(values[capCostIdx]) : null;
-
-      st.plots += 1;
-      st.replicates.add(rep);
-      if (y !== null) st.yields.push(y);
-      if (vc !== null) st.varCosts.push(vc);
-      if (cc !== null) st.capCosts.push(cc);
-
-      if (!st.isControl && repControlYield[rep] !== undefined && y !== null) {
-        st.yieldDelta.push(y - repControlYield[rep]);
-      }
-    });
-
-    const treatmentsStats = [];
-    const price = cfg.pricePerUnit;
-    const T = cfg.horizonYears;
-    const r = cfg.discountRate;
-
-    let pvFactor = T;
-    if (r > 0) {
-      pvFactor = (1 - Math.pow(1 + r, -T)) / r;
-    }
-
-    Object.values(stats).forEach((st) => {
-      const avgYield =
-        st.yields.length > 0
-          ? st.yields.reduce((a, b) => a + b, 0) / st.yields.length
-          : null;
-      const avgVarCost =
-        st.varCosts.length > 0
-          ? st.varCosts.reduce((a, b) => a + b, 0) / st.varCosts.length
-          : 0;
-      const avgCapCost =
-        st.capCosts.length > 0
-          ? st.capCosts.reduce((a, b) => a + b, 0) / st.capCosts.length
-          : 0;
-
-      const avgDeltaYield =
-        st.yieldDelta.length > 0
-          ? st.yieldDelta.reduce((a, b) => a + b, 0) / st.yieldDelta.length
-          : 0;
-
-      const annualBenefit = avgDeltaYield * price;
-      const pvBenefits = annualBenefit * pvFactor;
-      const pvVarCost = avgVarCost * pvFactor;
-      const pvCosts = pvVarCost + avgCapCost;
-
-      const npv = pvBenefits - pvCosts;
-      const bcr = pvCosts > 0 ? pvBenefits / pvCosts : null;
-      const roi = pvCosts > 0 ? npv / pvCosts : null;
-
-      treatmentsStats.push({
-        treatment: st.treatment,
-        isControl: st.isControl,
-        plots: st.plots,
-        replicateCount: st.replicates.size,
+      results.push({
+        name: t.name,
+        isControl: t.name === controlName,
         avgYield,
-        avgDeltaYield,
         avgVarCost,
         avgCapCost,
         pvBenefits,
-        pvCosts,
+        pvTotalCosts,
         npv,
         bcr,
         roi
       });
+    }
+
+    // Control metrics
+    const controlRes = results.find((r) => r.isControl) || results[0];
+    const cPvBenefits = controlRes.pvBenefits;
+    const cPvCosts = controlRes.pvTotalCosts;
+    const cNpv = controlRes.npv;
+
+    // Differences vs control and ranking
+    for (const r of results) {
+      r.deltaPvBenefits = r.pvBenefits - cPvBenefits;
+      r.deltaPvCosts = r.pvTotalCosts - cPvCosts;
+      r.deltaNpv = r.npv - cNpv;
+    }
+
+    results.sort((a, b) => {
+      const aVal = Number.isNaN(a.npv) ? -Infinity : a.npv;
+      const bVal = Number.isNaN(b.npv) ? -Infinity : b.npv;
+      return bVal - aVal;
     });
 
-    treatmentsStats.sort((a, b) => (b.npv || 0) - (a.npv || 0));
-    treatmentsStats.forEach((st, idx) => {
-      st.rank = idx + 1;
+    results.forEach((r, idx) => {
+      r.rank = idx + 1;
     });
 
-    return treatmentsStats;
+    state.results = {
+      treatments: results,
+      control: controlRes,
+      price,
+      years,
+      persistenceYears,
+      discountRate
+    };
   }
 
-  function formatCurrency(value) {
-    if (value === null || value === undefined || isNaN(value)) return "";
-    const abs = Math.abs(value);
-    const decimals = abs >= 1000 ? 0 : 2;
-    return value.toLocaleString(undefined, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
-    });
-  }
+  // =========================
+  // 4) RENDERING
+  // =========================
 
-  function formatRatio(value) {
-    if (value === null || value === undefined || isNaN(value)) return "";
-    return value.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  }
-
-  function runAllCalculations() {
-    const treatmentsStats = computeTreatmentStatistics();
-    state.results = { treatments: treatmentsStats };
-    renderTreatmentsView(treatmentsStats);
-    renderResultsLeaderboard(treatmentsStats);
-    renderComparisonTable(treatmentsStats);
-    renderNarrative(treatmentsStats);
-    computeAndRenderSensitivity();
-    fillAiBriefing(treatmentsStats);
-    fillStructuredResults(treatmentsStats);
-    updateNpvChart(treatmentsStats);
-    updateCostChart(treatmentsStats);
-  }
-
-  // ======================
-  // Treatments view
-  // ======================
-
-  function renderTreatmentsView(treatmentsStats) {
-    const container = document.getElementById("treatmentsList");
+  function renderOverview() {
+    const container = document.getElementById("overviewSummary");
     if (!container) return;
+    container.innerHTML = "";
 
-    if (!treatmentsStats || !treatmentsStats.length) {
-      container.innerHTML =
-        "<p class='small muted'>No treatment level summaries are available yet. Check the Data and checks tab to make sure the key fields are present.</p>";
+    if (!state.rows.length || !state.treatments.length) {
+      container.innerHTML = `<p class="small muted">No dataset loaded yet.</p>`;
       return;
     }
+
+    const nPlots = state.rows.length;
+    const nTreatments = state.treatments.length;
+    const nReplicates = new Set(
+      state.rows
+        .map((r) =>
+          state.columnMap && state.columnMap.replicate
+            ? r[state.columnMap.replicate]
+            : null
+        )
+        .filter((x) => x !== null && x !== undefined && String(x).trim() !== "")
+    ).size;
+
+    const controlName = state.controlName || "Not identified";
+
+    const cards = [
+      {
+        label: "Plots in dataset",
+        value: nPlots
+      },
+      {
+        label: "Distinct treatments",
+        value: nTreatments
+      },
+      {
+        label: "Replicates",
+        value: nReplicates || "–"
+      },
+      {
+        label: "Control treatment",
+        value: controlName
+      }
+    ];
+
+    for (const c of cards) {
+      const div = document.createElement("div");
+      div.className = "summary-card";
+      div.innerHTML = `
+        <div class="summary-card-label">${c.label}</div>
+        <div class="summary-card-value">${c.value}</div>
+      `;
+      container.appendChild(div);
+    }
+  }
+
+  function renderDataSummaryAndChecks() {
+    const summaryEl = document.getElementById("dataSummary");
+    const checksEl = document.getElementById("dataChecks");
+    if (!summaryEl || !checksEl) return;
+
+    if (!state.rows.length || !state.headers.length) {
+      summaryEl.textContent = "No dataset loaded.";
+      checksEl.innerHTML = "";
+      return;
+    }
+
+    const nRows = state.rows.length;
+    const nCols = state.headers.length;
+    summaryEl.textContent = `${nRows} plot rows, ${nCols} columns. All rows and columns are used in calculations.`;
+
+    const cm = state.columnMap;
+    const checks = [];
+
+    const addCheck = (ok, label, detail, severity) => {
+      checks.push({ ok, label, detail, severity });
+    };
+
+    const addColCheck = (purpose, colName) => {
+      if (colName) {
+        addCheck(
+          true,
+          `${purpose} column found`,
+          `"${colName}" is used for ${purpose.toLowerCase()}.`,
+          "ok"
+        );
+      } else {
+        addCheck(
+          false,
+          `${purpose} column missing`,
+          `No column was found for ${purpose.toLowerCase()}. The tool will still run but some metrics may be incomplete.`,
+          "warn"
+        );
+      }
+    };
+
+    addColCheck("Treatment name", cm.treatmentName);
+    addColCheck("Control flag", cm.isControl);
+    addColCheck("Replicate", cm.replicate);
+    addColCheck("Yield", cm.yield);
+    addColCheck("Variable cost", cm.variableCost);
+    addColCheck("Capital cost", cm.capitalCost);
+
+    const missingYieldRows = state.rows.filter((r) => {
+      if (!cm.yield) return false;
+      const v = r[cm.yield];
+      return v === null || v === undefined || String(v).trim() === "";
+    }).length;
+
+    if (missingYieldRows > 0) {
+      addCheck(
+        false,
+        "Missing yield values",
+        `${missingYieldRows} rows have missing yield; these rows still count for costs but are excluded from yield averages.`,
+        "warn"
+      );
+    } else {
+      addCheck(
+        true,
+        "Yield values present",
+        "All rows have yield values in the detected yield column.",
+        "ok"
+      );
+    }
+
+    checksEl.innerHTML = "";
+    for (const c of checks) {
+      const li = document.createElement("li");
+      li.className = "check-item";
+      const pillClass =
+        c.severity === "err" ? "err" : c.severity === "warn" ? "warn" : "ok";
+      li.innerHTML = `
+        <span class="check-pill ${pillClass}">${c.ok ? "OK" : "Check"}</span>
+        <span>${c.label}. ${c.detail}</span>
+      `;
+      checksEl.appendChild(li);
+    }
+  }
+
+  function renderControlChoice() {
+    const select = document.getElementById("controlChoice");
+    if (!select) return;
+    select.innerHTML = "";
+
+    if (!state.treatments.length) return;
+
+    for (const t of state.treatments) {
+      const opt = document.createElement("option");
+      opt.value = t.name;
+      opt.textContent = t.name;
+      if (t.name === state.controlName) {
+        opt.selected = true;
+      }
+      select.appendChild(opt);
+    }
+  }
+
+  function renderLeaderboard() {
+    const container = document.getElementById("leaderboardContainer");
+    const filterSelect = document.getElementById("leaderboardFilter");
+    if (!container) return;
 
     container.innerHTML = "";
-    treatmentsStats.forEach((st) => {
-      const card = document.createElement("div");
-      card.className = "treatment-card";
 
-      const left = document.createElement("div");
-      const right = document.createElement("div");
-
-      const header = document.createElement("div");
-      header.className = "treatment-card-header";
-
-      const nameSpan = document.createElement("span");
-      nameSpan.className = "treatment-name";
-      nameSpan.textContent = st.treatment;
-
-      const tagSpan = document.createElement("span");
-      tagSpan.className = "treatment-tag" + (st.isControl ? " control" : "");
-      tagSpan.textContent = st.isControl ? "Control" : "Treatment";
-
-      header.appendChild(nameSpan);
-      header.appendChild(tagSpan);
-
-      const meta = document.createElement("div");
-      meta.className = "treatment-meta";
-      meta.textContent =
-        "Plots: " +
-        st.plots +
-        " · Replicates: " +
-        st.replicateCount +
-        (st.isControl ? " · Used as baseline" : "");
-
-      left.appendChild(header);
-      left.appendChild(meta);
-
-      const yieldTitle = document.createElement("div");
-      yieldTitle.className = "treatment-section-title";
-      yieldTitle.textContent = "Average yield and change compared with control";
-
-      const costTitle = document.createElement("div");
-      costTitle.className = "treatment-section-title";
-      costTitle.style.marginTop = "8px";
-      costTitle.textContent = "Average costs per plot";
-
-      const table1 = document.createElement("table");
-      table1.className = "treatment-summary-table";
-      table1.innerHTML =
-        "<tbody>" +
-        "<tr><th>Average yield</th><td>" +
-        (st.avgYield !== null && !isNaN(st.avgYield)
-          ? st.avgYield.toFixed(3)
-          : "") +
-        "</td></tr>" +
-        "<tr><th>Average change vs control</th><td>" +
-        (st.avgDeltaYield !== null && !isNaN(st.avgDeltaYield)
-          ? st.avgDeltaYield.toFixed(3)
-          : st.isControl
-          ? "0.000"
-          : "") +
-        "</td></tr>" +
-        "</tbody>";
-
-      const table2 = document.createElement("table");
-      table2.className = "treatment-summary-table";
-      table2.innerHTML =
-        "<tbody>" +
-        "<tr><th>Average variable cost</th><td>" +
-        formatCurrency(st.avgVarCost) +
-        "</td></tr>" +
-        "<tr><th>Average capital cost</th><td>" +
-        formatCurrency(st.avgCapCost) +
-        "</td></tr>" +
-        "</tbody>";
-
-      right.appendChild(yieldTitle);
-      right.appendChild(table1);
-      right.appendChild(costTitle);
-      right.appendChild(table2);
-
-      card.appendChild(left);
-      card.appendChild(right);
-      container.appendChild(card);
-    });
-  }
-
-  // ======================
-  // Results leaderboard
-  // ======================
-
-  function renderResultsLeaderboard(treatmentsStats, filterType) {
-    const container = document.getElementById("resultsLeaderboard");
-    if (!container) return;
-
-    if (!treatmentsStats || !treatmentsStats.length) {
+    const { treatments } = state.results;
+    if (!treatments || !treatments.length) {
       container.innerHTML =
-        "<p class='small muted'>No economic results yet. Check the Configuration and scenarios tab and make sure key fields are present in the data.</p>";
+        '<p class="small muted">No results yet. Load data and apply scenario settings.</p>';
       return;
     }
 
-    let list = [...treatmentsStats];
+    const filter = filterSelect ? filterSelect.value : "all";
 
-    const controlName = state.controlName;
-    const control = list.find((x) => x.treatment === controlName);
+    let rows = treatments.slice();
+    const control = treatments.find((t) => t.isControl);
 
-    if (filterType === "topNPV") {
-      list.sort((a, b) => (b.npv || 0) - (a.npv || 0));
-      list = list.slice(0, 5);
-    } else if (filterType === "topBCR") {
-      list.sort((a, b) => (b.bcr || 0) - (a.bcr || 0));
-      list = list.slice(0, 5);
-    } else if (filterType === "onlyBetter" && control) {
-      list = list.filter((t) => t.npv > control.npv);
-      if (!list.length) {
-        container.innerHTML =
-          "<p class='small muted'>No treatment has higher net profit over time than the control under the current settings.</p>";
-        return;
+    if (filter === "topNPV") {
+      rows = rows
+        .slice()
+        .filter((r) => !Number.isNaN(r.npv))
+        .sort((a, b) => b.npv - a.npv)
+        .slice(0, 5);
+    } else if (filter === "topBCR") {
+      rows = rows
+        .slice()
+        .filter((r) => !Number.isNaN(r.bcr))
+        .sort((a, b) => b.bcr - a.bcr)
+        .slice(0, 5);
+    } else if (filter === "betterThanControl" && control) {
+      rows = rows.filter((r) => r.npv > control.npv);
+    }
+
+    const table = document.createElement("table");
+    table.className = "leaderboard-table";
+    const thead = document.createElement("thead");
+    thead.innerHTML = `
+      <tr>
+        <th>Rank</th>
+        <th>Treatment</th>
+        <th>Net profit over time</th>
+        <th>Difference in net profit vs control</th>
+      </tr>
+    `;
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    for (const r of rows) {
+      const tr = document.createElement("tr");
+      if (r.isControl) {
+        tr.classList.add("highlight-better");
+      } else if (r.deltaNpv < 0) {
+        tr.classList.add("highlight-worse");
       }
+
+      const deltaText = r.isControl
+        ? "Baseline"
+        : `${r.deltaNpv >= 0 ? "+" : ""}${formatCurrency(r.deltaNpv)}`;
+
+      tr.innerHTML = `
+        <td>${r.rank}</td>
+        <td>
+          ${r.name}
+          ${r.isControl ? '<span class="tag-control">Control</span>' : ""}
+        </td>
+        <td>${formatCurrency(r.npv)}</td>
+        <td>${deltaText}</td>
+      `;
+      tbody.appendChild(tr);
     }
+    table.appendChild(tbody);
 
-    const headers =
-      "<thead><tr>" +
-      "<th>Rank</th>" +
-      "<th>Treatment</th>" +
-      "<th>Net profit over time</th>" +
-      "<th>Benefit per dollar spent</th>" +
-      "<th>Return on investment</th>" +
-      "<th>Net profit difference compared with control</th>" +
-      "</tr></thead>";
-
-    let rowsHtml = "<tbody>";
-    list.forEach((st) => {
-      const isControl = st.treatment === controlName;
-      const rankChipClass = isControl ? "" : st.rank <= 3 ? "rank-chip top" : "rank-chip";
-      const rankChipText = isControl ? "-" : st.rank;
-      const controlNpv = control ? control.npv : 0;
-      const deltaNpv = st.npv - controlNpv;
-
-      const deltaClass =
-        !isControl && deltaNpv > 0
-          ? "cell-positive"
-          : !isControl && deltaNpv < 0
-          ? "cell-negative"
-          : "";
-
-      rowsHtml +=
-        "<tr class='" +
-        (isControl ? "highlight" : "") +
-        "'>" +
-        "<td><span class='" +
-        rankChipClass +
-        "'>" +
-        rankChipText +
-        "</span></td>" +
-        "<td>" +
-        st.treatment +
-        (isControl ? " (control)" : "") +
-        "</td>" +
-        "<td>" +
-        formatCurrency(st.npv) +
-        "</td>" +
-        "<td>" +
-        (st.bcr !== null ? formatRatio(st.bcr) : "") +
-        "</td>" +
-        "<td>" +
-        (st.roi !== null ? formatRatio(st.roi) : "") +
-        "</td>" +
-        "<td class='" +
-        deltaClass +
-        "'>" +
-        (isControl ? "0" : formatCurrency(deltaNpv)) +
-        "</td>" +
-        "</tr>";
-    });
-    rowsHtml += "</tbody>";
-
-    container.innerHTML = "<table>" + headers + rowsHtml + "</table>";
+    container.appendChild(table);
   }
 
-  // ======================
-  // Comparison to control table
-  // ======================
+  function renderComparisonTable() {
+    const table = document.getElementById("comparisonTable");
+    if (!table) return;
 
-  function renderComparisonTable(treatmentsStats) {
-    const container = document.getElementById("comparisonToControl");
-    if (!container) return;
+    table.innerHTML = "";
 
-    if (!treatmentsStats || !treatmentsStats.length) {
-      container.innerHTML =
-        "<p class='small muted' style='padding:10px;'>No economic results yet. Once data and settings are in place, a full comparison table will appear here.</p>";
+    const { treatments } = state.results;
+    if (!treatments || !treatments.length) {
+      table.innerHTML =
+        '<tbody><tr><td class="small muted">No results yet. Load data and apply scenario settings.</td></tr></tbody>';
       return;
     }
 
-    const controlName = state.controlName;
-    const control = treatmentsStats.find((t) => t.treatment === controlName) || treatmentsStats[0];
+    const control = treatments.find((t) => t.isControl) || treatments[0];
+    const nonControl = treatments.filter((t) => !t.isControl);
+    const ordered = [control, ...nonControl];
 
     const indicators = [
       { key: "pvBenefits", label: "Total benefits over time (discounted)" },
-      { key: "pvCosts", label: "Total costs over time (discounted)" },
+      { key: "pvTotalCosts", label: "Total costs over time (discounted)" },
       { key: "npv", label: "Net profit over time" },
-      { key: "bcr", label: "Benefit per dollar spent", isRatio: true },
-      { key: "roi", label: "Return on investment", isRatio: true },
-      { key: "rank", label: "Overall ranking", isRank: true }
+      { key: "bcr", label: "Benefit per dollar spent" },
+      { key: "roi", label: "Return on investment (percent)" },
+      { key: "rank", label: "Overall ranking" },
+      {
+        key: "deltaNpv",
+        label: "Difference in net profit compared with control"
+      },
+      {
+        key: "deltaPvCosts",
+        label: "Difference in total cost compared with control"
+      }
     ];
 
-    const headers = [];
-    headers.push("<th>What is measured</th>");
-    headers.push("<th class='header-control'>Control (baseline)</th>");
-    treatmentsStats.forEach((st) => {
-      if (st.treatment === control.treatment) return;
-      headers.push("<th class='header-treatment'>" + st.treatment + "</th>");
-      headers.push(
-        "<th class='header-treatment'>Difference in net profit compared with control</th>"
-      );
-      headers.push(
-        "<th class='header-treatment'>Difference in total cost compared with control</th>"
-      );
-    });
+    const thead = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    headRow.innerHTML =
+      '<th class="sticky-col">What is measured</th>' +
+      ordered
+        .map(
+          (t) =>
+            `<th>${t.isControl ? "Control (baseline)" : escapeHtml(t.name)}</th>`
+        )
+        .join("");
+    thead.appendChild(headRow);
+    table.appendChild(thead);
 
-    let html = "<table><thead><tr>" + headers.join("") + "</tr></thead><tbody>";
+    const tbody = document.createElement("tbody");
 
-    indicators.forEach((ind) => {
-      let row = "<tr>";
-      row += "<th>" + ind.label + "</th>";
+    for (const ind of indicators) {
+      const tr = document.createElement("tr");
+      const firstCell = document.createElement("td");
+      firstCell.className = "sticky-col";
+      firstCell.innerHTML = `<span class="indicator-name">${ind.label}</span>`;
+      tr.appendChild(firstCell);
 
-      if (ind.isRank) {
-        row += "<td class='cell-strong'>" + control.rank + "</td>";
-      } else {
-        const controlVal = control[ind.key];
-        const controlStr = ind.isRatio ? formatRatio(controlVal) : formatCurrency(controlVal);
-        row += "<td class='cell-strong'>" + controlStr + "</td>";
-      }
+      for (const t of ordered) {
+        const r = treatments.find((x) => x.name === t.name);
+        const td = document.createElement("td");
+        let mainVal = "";
+        let subVal = "";
+        let subClass = "";
 
-      treatmentsStats.forEach((st) => {
-        if (st.treatment === control.treatment) return;
-
-        if (ind.isRank) {
-          row += "<td>" + st.rank + "</td>";
-          row += "<td></td>";
-          row += "<td></td>";
-          return;
+        if (ind.key === "pvBenefits") {
+          mainVal = formatCurrency(r.pvBenefits);
+          if (!r.isControl) {
+            const delta = r.deltaPvBenefits;
+            if (!Number.isNaN(delta)) {
+              subVal = `${delta >= 0 ? "+" : ""}${formatCurrency(delta)} vs control`;
+              subClass = delta >= 0 ? "cell-better" : "cell-worse";
+            }
+          }
+        } else if (ind.key === "pvTotalCosts") {
+          mainVal = formatCurrency(r.pvTotalCosts);
+          if (!r.isControl) {
+            const delta = r.deltaPvCosts;
+            if (!Number.isNaN(delta)) {
+              subVal = `${delta >= 0 ? "+" : ""}${formatCurrency(
+                delta
+              )} vs control`;
+              subClass = delta <= 0 ? "cell-better" : "cell-worse";
+            }
+          }
+        } else if (ind.key === "npv") {
+          mainVal = formatCurrency(r.npv);
+          if (!r.isControl) {
+            const delta = r.deltaNpv;
+            if (!Number.isNaN(delta)) {
+              subVal = `${delta >= 0 ? "+" : ""}${formatCurrency(
+                delta
+              )} vs control`;
+              subClass = delta >= 0 ? "cell-better" : "cell-worse";
+            }
+          } else {
+            subVal = "Baseline level";
+          }
+        } else if (ind.key === "bcr") {
+          mainVal = Number.isNaN(r.bcr) ? "–" : formatNumber(r.bcr, 2);
+        } else if (ind.key === "roi") {
+          mainVal = Number.isNaN(r.roi)
+            ? "–"
+            : `${formatNumber(r.roi, 1)}%`;
+        } else if (ind.key === "rank") {
+          mainVal = r.rank;
+        } else if (ind.key === "deltaNpv") {
+          mainVal = r.isControl
+            ? "0 (baseline)"
+            : `${r.deltaNpv >= 0 ? "+" : ""}${formatCurrency(r.deltaNpv)}`;
+          if (!r.isControl) {
+            subClass = r.deltaNpv >= 0 ? "cell-better" : "cell-worse";
+          }
+        } else if (ind.key === "deltaPvCosts") {
+          mainVal = r.isControl
+            ? "0 (baseline)"
+            : `${r.deltaPvCosts >= 0 ? "+" : ""}${formatCurrency(
+                r.deltaPvCosts
+              )}`;
+          if (!r.isControl) {
+            subClass = r.deltaPvCosts <= 0 ? "cell-better" : "cell-worse";
+          }
         }
 
-        const val = st[ind.key];
-        const valStr = ind.isRatio ? formatRatio(val) : formatCurrency(val);
+        td.innerHTML = `
+          <div class="cell-main">${mainVal}</div>
+          <div class="cell-sub ${subClass}">${subVal}</div>
+        `;
+        tr.appendChild(td);
+      }
 
-        if (ind.key === "npv" || ind.key === "pvBenefits" || ind.key === "pvCosts") {
-          const deltaNpv = st.npv - control.npv;
-          const deltaCosts = st.pvCosts - control.pvCosts;
-          const deltaClassNpv =
-            deltaNpv > 0 ? "cell-positive cell-strong" : deltaNpv < 0 ? "cell-negative cell-strong" : "";
-          const deltaClassCost =
-            deltaCosts < 0 ? "cell-positive cell-strong" : deltaCosts > 0 ? "cell-negative cell-strong" : "";
-          row += "<td>" + valStr + "</td>";
-          row += "<td class='" + deltaClassNpv + "'>" + formatCurrency(deltaNpv) + "</td>";
-          row += "<td class='" + deltaClassCost + "'>" + formatCurrency(deltaCosts) + "</td>";
-        } else {
-          row += "<td>" + valStr + "</td>";
-          row += "<td></td>";
-          row += "<td></td>";
+      tbody.appendChild(tr);
+    }
+
+    table.appendChild(tbody);
+  }
+
+  // Escape HTML in treatment names
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function renderCharts() {
+    const { treatments } = state.results;
+    if (!treatments || !treatments.length) return;
+
+    const control = treatments.find((t) => t.isControl);
+    const nonControl = treatments.filter((t) => !t.isControl);
+    const all = treatments.slice();
+
+    // Net profit vs control chart
+    const ctxNet = document.getElementById("chartNetProfitVsControl");
+    if (ctxNet) {
+      if (state.charts.netProfitDelta) {
+        state.charts.netProfitDelta.destroy();
+      }
+      const labels = nonControl.map((t) => t.name);
+      const dataDelta = nonControl.map((t) => t.deltaNpv);
+
+      state.charts.netProfitDelta = new Chart(ctxNet, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Difference in net profit vs control (per hectare)",
+              data: dataDelta
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              ticks: { font: { size: 10 } }
+            },
+            y: {
+              title: {
+                display: true,
+                text: "Difference in net profit (AUD per hectare)"
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) =>
+                  `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+              }
+            }
+          }
         }
       });
-
-      row += "</tr>";
-      html += row;
-    });
-
-    html += "</tbody></table>";
-    container.innerHTML = html;
-  }
-
-  // ======================
-  // Narrative
-  // ======================
-
-  function renderNarrative(treatmentsStats) {
-    const el = document.getElementById("resultsNarrative");
-    if (!el) return;
-
-    if (!treatmentsStats || !treatmentsStats.length) {
-      el.textContent =
-        "Once data and configuration are in place, this section will describe the main findings in plain language.";
-      return;
     }
 
-    const controlName = state.controlName;
-    const control = treatmentsStats.find((t) => t.treatment === controlName) || treatmentsStats[0];
-    const others = treatmentsStats.filter((t) => t.treatment !== control.treatment);
+    // Costs and benefits chart
+    const ctxCB = document.getElementById("chartCostsBenefits");
+    if (ctxCB) {
+      if (state.charts.costsBenefits) {
+        state.charts.costsBenefits.destroy();
+      }
 
-    if (!others.length) {
-      el.textContent =
-        "Only one treatment is present in the dataset. Add at least one more treatment for the comparison to become meaningful.";
-      return;
-    }
+      const labelsCB = all.map((t) =>
+        t.isControl ? `${t.name} (control)` : t.name
+      );
+      const benefits = all.map((t) => t.pvBenefits);
+      const costs = all.map((t) => t.pvTotalCosts);
 
-    const bestByNpv = [...others].sort((a, b) => (b.npv || 0) - (a.npv || 0))[0];
-    const bestByBcr = [...others].sort((a, b) => (b.bcr || 0) - (a.bcr || 0))[0];
-
-    const deltaNpv = bestByNpv.npv - control.npv;
-    const deltaCost = bestByNpv.pvCosts - control.pvCosts;
-    const directionNpv = deltaNpv > 0 ? "higher" : deltaNpv < 0 ? "lower" : "the same as";
-    const directionCost = deltaCost > 0 ? "higher" : deltaCost < 0 ? "lower" : "the same as";
-
-    const cfg = state.config;
-
-    const text =
-      "Under the current settings, with a price per unit of " +
-      formatCurrency(cfg.pricePerUnit) +
-      " and a " +
-      (cfg.discountRate * 100).toFixed(1) +
-      " percent discount rate over " +
-      cfg.horizonYears +
-      " years, the control is " +
-      control.treatment +
-      ". The treatment with the highest net profit over time is " +
-      bestByNpv.treatment +
-      ". Its net profit over time is " +
-      formatCurrency(bestByNpv.npv) +
-      ", which is " +
-      directionNpv +
-      " the control by about " +
-      formatCurrency(Math.abs(deltaNpv)) +
-      ". The total cost over time for this treatment is " +
-      directionCost +
-      " the control by around " +
-      formatCurrency(Math.abs(deltaCost)) +
-      ". This means that it wins mainly through " +
-      (deltaNpv > 0 && deltaCost <= 0
-        ? "a mix of higher benefits and lower costs"
-        : deltaNpv > 0 && deltaCost > 0
-        ? "higher benefits that more than cover higher costs"
-        : "a different combination of costs and benefits") +
-      ".\n\n" +
-      "Looking at value for money, the treatment with the highest benefit per dollar spent is " +
-      bestByBcr.treatment +
-      " with a benefit per dollar ratio of about " +
-      formatRatio(bestByBcr.bcr) +
-      ". This means that every unit of cost spent on this treatment returns that many units of benefit in present value terms. " +
-      "Treatments with a ratio above one return more benefits than costs under the current assumptions.";
-
-    el.textContent = text;
-  }
-
-  // ======================
-  // Sensitivity
-  // ======================
-
-  function computeAndRenderSensitivity() {
-    const el = document.getElementById("sensitivitySummary");
-    if (!el) return;
-
-    const cfg = state.config;
-
-    const discounts = [cfg.discountLow, cfg.discountBase, cfg.discountHigh];
-    const prices = [cfg.priceLow, cfg.priceBase, cfg.priceHigh];
-
-    const baseStats = computeTreatmentStatistics();
-    if (!baseStats.length) {
-      el.textContent =
-        "Sensitivity results will appear here once the economic engine has been able to calculate net profit over time.";
-      state.sensitivity = null;
-      updateSensitivityChart(null);
-      return;
-    }
-
-    const controlName = state.controlName;
-    const controlBase =
-      baseStats.find((t) => t.treatment === controlName) || baseStats[0];
-
-    const bestBase = [...baseStats]
-      .filter((t) => t.treatment !== controlBase.treatment)
-      .sort((a, b) => (b.npv || 0) - (a.npv || 0))[0];
-
-    if (!bestBase) {
-      el.textContent =
-        "Only one treatment is present in the dataset. Sensitivity analysis is less informative in this case.";
-      state.sensitivity = null;
-      updateSensitivityChart(null);
-      return;
-    }
-
-    const records = [];
-
-    discounts.forEach((dr) => {
-      prices.forEach((pm) => {
-        const override = {
-          ...cfg,
-          discountRate: dr,
-          pricePerUnit: cfg.pricePerUnit * pm
-        };
-        const stats = computeTreatmentStatistics(override);
-        if (!stats.length) return;
-        const controlAlt =
-          stats.find((t) => t.treatment === controlBase.treatment) || stats[0];
-        const bestAlt = [...stats]
-          .filter((t) => t.treatment !== controlAlt.treatment)
-          .sort((a, b) => (b.npv || 0) - (a.npv || 0))[0];
-        if (!bestAlt) return;
-
-        records.push({
-          discount: dr,
-          priceMultiplier: pm,
-          bestTreatment: bestAlt.treatment,
-          bestNpv: bestAlt.npv,
-          controlNpv: controlAlt.npv
-        });
+      state.charts.costsBenefits = new Chart(ctxCB, {
+        type: "bar",
+        data: {
+          labels: labelsCB,
+          datasets: [
+            {
+              label: "Total benefits over time (discounted)",
+              data: benefits
+            },
+            {
+              label: "Total costs over time (discounted)",
+              data: costs
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              stacked: false,
+              ticks: { font: { size: 10 } }
+            },
+            y: {
+              stacked: false,
+              title: {
+                display: true,
+                text: "AUD per hectare"
+              }
+            }
+          },
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: (ctx) =>
+                  `${ctx.dataset.label}: ${formatCurrency(ctx.parsed.y)}`
+              }
+            }
+          }
+        }
       });
-    });
-
-    state.sensitivity = { records };
-
-    let text =
-      "The summary below lists combinations of discount rates and price levels and shows the best treatment and its margin over the control.\n\n";
-
-    records.forEach((rec) => {
-      const ratePct = (rec.discount * 100).toFixed(1);
-      const pricePct = (rec.priceMultiplier * 100).toFixed(0);
-      const delta = rec.bestNpv - rec.controlNpv;
-      text +=
-        "Discount rate " +
-        ratePct +
-        " percent and price at " +
-        pricePct +
-        " percent of the main price: " +
-        rec.bestTreatment +
-        " is the best treatment with a net profit over time of " +
-        formatCurrency(rec.bestNpv) +
-        ". This is ahead of the control by about " +
-        formatCurrency(delta) +
-        ".\n";
-    });
-
-    el.textContent = text;
-    updateSensitivityChart(records);
-  }
-
-  // ======================
-  // Charts
-  // ======================
-
-  function updateNpvChart(treatmentsStats) {
-    const canvas = document.getElementById("chartNpvVsControl");
-    if (!canvas || typeof Chart === "undefined") return;
-
-    if (npvChart) {
-      npvChart.destroy();
-      npvChart = null;
     }
-
-    if (!treatmentsStats || !treatmentsStats.length) return;
-
-    const controlName = state.controlName;
-    const control =
-      treatmentsStats.find((t) => t.treatment === controlName) || treatmentsStats[0];
-
-    const labels = [];
-    const data = [];
-
-    treatmentsStats.forEach((st) => {
-      labels.push(st.treatment);
-      const delta = st.npv - control.npv;
-      data.push(delta);
-    });
-
-    const ctx = canvas.getContext("2d");
-    npvChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Net profit difference compared with control",
-            data
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: "Treatments (control and alternatives)"
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: "Net profit difference compared with control"
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            display: false
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctxPoint) => {
-                const value = ctxPoint.parsed.y;
-                return "Difference: " + formatCurrency(value);
-              }
-            }
-          }
-        }
-      }
-    });
   }
 
-  function updateCostChart(treatmentsStats) {
-    const canvas = document.getElementById("chartCostBenefit");
-    if (!canvas || typeof Chart === "undefined") return;
+  function buildAiBriefingPrompt() {
+    const textarea = document.getElementById("aiBriefing");
+    if (!textarea) return;
 
-    if (costChart) {
-      costChart.destroy();
-      costChart = null;
-    }
-
-    if (!treatmentsStats || !treatmentsStats.length) return;
-
-    const labels = [];
-    const benefits = [];
-    const costs = [];
-
-    treatmentsStats.forEach((st) => {
-      labels.push(st.treatment);
-      benefits.push(st.pvBenefits);
-      costs.push(st.pvCosts);
-    });
-
-    const ctx = canvas.getContext("2d");
-    costChart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Total benefits over time (discounted)",
-            data: benefits
-          },
-          {
-            label: "Total costs over time (discounted)",
-            data: costs
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-          x: {
-            stacked: false,
-            title: {
-              display: true,
-              text: "Treatments"
-            }
-          },
-          y: {
-            stacked: false,
-            title: {
-              display: true,
-              text: "Value"
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            display: true
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctxPoint) => {
-                const label = ctxPoint.dataset.label || "";
-                const value = ctxPoint.parsed.y;
-                return label + ": " + formatCurrency(value);
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  function updateSensitivityChart(records) {
-    const canvas = document.getElementById("chartSensitivity");
-    if (!canvas || typeof Chart === "undefined") return;
-
-    if (sensitivityChart) {
-      sensitivityChart.destroy();
-      sensitivityChart = null;
-    }
-
-    if (!records || !records.length) return;
-
-    const cfg = state.config;
-    const baseMultiplier = cfg.priceBase;
-
-    const filtered = records.filter(
-      (rec) => Math.abs(rec.priceMultiplier - baseMultiplier) < 1e-6
-    );
-    if (!filtered.length) return;
-
-    filtered.sort((a, b) => a.discount - b.discount);
-
-    const labels = [];
-    const data = [];
-
-    filtered.forEach((rec) => {
-      labels.push((rec.discount * 100).toFixed(1) + " percent");
-      const delta = rec.bestNpv - rec.controlNpv;
-      data.push(delta);
-    });
-
-    const ctx = canvas.getContext("2d");
-    sensitivityChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels,
-        datasets: [
-          {
-            label: "Net profit difference between best treatment and control",
-            data
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        tension: 0.2,
-        scales: {
-          x: {
-            title: {
-              display: true,
-              text: "Discount rate"
-            }
-          },
-          y: {
-            title: {
-              display: true,
-              text: "Net profit difference"
-            }
-          }
-        },
-        plugins: {
-          legend: {
-            display: false
-          },
-          tooltip: {
-            callbacks: {
-              label: (ctxPoint) => {
-                const value = ctxPoint.parsed.y;
-                return "Difference: " + formatCurrency(value);
-              }
-            }
-          }
-        }
-      }
-    });
-  }
-
-  // ======================
-  // AI briefing helpers
-  // ======================
-
-  function fillAiBriefing(treatmentsStats) {
-    const el = document.getElementById("aiBriefingText");
-    if (!el) return;
-
-    if (!treatmentsStats || !treatmentsStats.length) {
-      el.value =
-        "The economic engine has not yet been able to calculate net profit over time. Once data and configuration are in place, this box will contain a ready to use description for an assistant.";
+    const { treatments, control, price, years, persistenceYears, discountRate } =
+      state.results;
+    if (!treatments || !treatments.length || !control) {
+      textarea.value =
+        "No scenario is available yet. Load the trial dataset, apply scenario settings, and then regenerate this summary.";
       return;
     }
-
-    const cfg = state.config;
-    const controlName = state.controlName;
-    const control =
-      treatmentsStats.find((t) => t.treatment === controlName) || treatmentsStats[0];
-
-    const ordered = [...treatmentsStats].sort((a, b) => (b.npv || 0) - (a.npv || 0));
-    const topTwo = ordered.slice(0, 2);
-
-    let txt = "";
-    txt +=
-      "You are asked to prepare a clear narrative summary of a farm trial and its cost benefit results. " +
-      "The trial compares one control treatment with several alternative treatments. The tool has already calculated net profit over time, the benefit per dollar spent and the return on investment for each treatment.\n\n";
-
-    txt +=
-      "Key economic settings are as follows. The analysis horizon is " +
-      cfg.horizonYears +
-      " years. The main discount rate is " +
-      (cfg.discountRate * 100).toFixed(1) +
-      " percent per year. The price per unit of output is " +
-      formatCurrency(cfg.pricePerUnit) +
-      " in local currency. Capital costs are treated as year zero costs and are not discounted. Variable costs and benefits are treated as annual flows and are discounted over the analysis horizon.\n\n";
-
-    txt +=
-      "The control treatment is called " +
-      control.treatment +
-      ". Under the main economic settings its net profit over time is " +
-      formatCurrency(control.npv) +
-      " in local currency. This provides a baseline for comparison.\n\n";
-
-    txt +=
-      "The treatments and their main indicators are listed below. For each one, the net profit over time, the benefit per dollar spent and the return on investment are shown.\n\n";
 
     const lines = [];
-    treatmentsStats.forEach((st) => {
+    lines.push(
+      "You are reviewing a cost–benefit analysis based on a real faba beans soil amendment trial."
+    );
+    lines.push(
+      "All figures are calculated from the full trial dataset without dropping any plots."
+    );
+    lines.push("");
+    lines.push("Scenario settings:");
+    lines.push(
+      `- Grain price per tonne: ${formatCurrency(price)} per tonne of harvested grain.`
+    );
+    lines.push(
+      `- Years of benefits and costs: ${years} years are included in the analysis.`
+    );
+    lines.push(
+      `- Years that yield gains last: yield gains from treatments are assumed to last for ${persistenceYears} years.`
+    );
+    lines.push(
+      `- Discount rate: ${discountRate.toFixed(
+        1
+      )} percent per year is used to express future flows in today’s dollars.`
+    );
+    lines.push("");
+    lines.push(
+      `The control treatment is "${control.name}". It is the baseline for all comparisons.`
+    );
+    lines.push(
+      `Its discounted total benefits per hectare are ${formatCurrency(
+        control.pvBenefits
+      )}, its discounted total costs are ${formatCurrency(
+        control.pvTotalCosts
+      )}, and its net profit over time is ${formatCurrency(control.npv)}.`
+    );
+    lines.push("");
+    lines.push(
+      "For each other treatment, describe how it compares with the control in terms of total discounted benefits, total discounted costs, and net profit per hectare. Focus on practical interpretation for farmers and advisers."
+    );
+    lines.push("");
+    lines.push("Key treatment results to interpret:");
+    for (const t of treatments) {
+      const label = t.isControl ? "Control" : "Treatment";
+      const deltaNpvText = t.isControl
+        ? "0 (baseline)"
+        : `${t.deltaNpv >= 0 ? "higher" : "lower"} net profit of about ${formatCurrency(
+            Math.abs(t.deltaNpv)
+          )} per hectare compared with the control.`;
+      const deltaCostText = t.isControl
+        ? "0 (baseline)"
+        : `${t.deltaPvCosts >= 0 ? "higher" : "lower"} discounted total costs by about ${formatCurrency(
+            Math.abs(t.deltaPvCosts)
+          )} per hectare relative to the control.`;
+
       lines.push(
-        "Treatment name: " +
-          st.treatment +
-          ". Net profit over time: " +
-          formatCurrency(st.npv) +
-          ". Benefit per dollar spent: " +
-          (st.bcr !== null ? formatRatio(st.bcr) : "not defined") +
-          ". Return on investment: " +
-          (st.roi !== null ? formatRatio(st.roi) : "not defined") +
-          "."
+        `- ${label} "${t.name}": net profit over time ${formatCurrency(
+          t.npv
+        )} per hectare; benefit per dollar spent around ${
+          Number.isNaN(t.bcr) ? "not defined" : t.bcr.toFixed(2)
+        }; return on investment about ${
+          Number.isNaN(t.roi) ? "not defined" : t.roi.toFixed(1)
+        } percent. This corresponds to ${deltaNpvText} It also has ${deltaCostText}`
       );
-    });
-
-    txt += lines.join("\n") + "\n\n";
-
-    if (topTwo.length >= 2) {
-      const first = topTwo[0];
-      const second = topTwo[1];
-      txt +=
-        "In your narrative, highlight why " +
-        first.treatment +
-        " is ranked first based on net profit over time and how much it gains over the control. " +
-        "Also explain how " +
-        second.treatment +
-        " compares with the control and with " +
-        first.treatment +
-        ".\n\n";
     }
+    lines.push("");
+    lines.push(
+      "Write a concise narrative that explains which treatments look most promising, where gains come from higher yields versus lower costs, and how much better or worse they are than the control in practical terms."
+    );
+    lines.push(
+      "Use clear language that farmers, agronomists, and policy makers can understand. Avoid technical shorthand such as NPV or BCR; instead, talk about total profit over time, total costs over time, and benefit per dollar spent."
+    );
 
-    txt +=
-      "Please write in plain language that is suitable for farmers and local advisers. " +
-      "Explain what net profit over time, benefit per dollar spent and return on investment mean in intuitive terms. " +
-      "Make it clear that results depend on the price per unit and the discount rate. " +
-      "Avoid technical jargon wherever possible.";
-
-    el.value = txt;
+    textarea.value = lines.join("\n");
   }
 
-  function fillStructuredResults(treatmentsStats) {
-    const el = document.getElementById("resultsJson");
-    if (!el) return;
+  // =========================
+  // 5) EXPORTS
+  // =========================
 
-    if (!treatmentsStats || !treatmentsStats.length) {
-      el.value =
-        '{"note":"No results yet. Once net profit over time is available this block will contain a compact summary."}';
+  function exportCleanDatasetTSV() {
+    if (!state.headers.length || !state.rows.length) {
+      showToast("No dataset to export.", "error");
+      return;
+    }
+    const headerLine = state.headers.join("\t");
+    const lines = [headerLine];
+
+    for (const row of state.rows) {
+      const cells = state.headers.map((h) => {
+        const v = row[h];
+        return v === undefined || v === null ? "" : String(v);
+      });
+      lines.push(cells.join("\t"));
+    }
+
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/tab-separated-values;charset=utf-8;"
+    });
+    downloadBlob(blob, "faba_beans_dataset_clean.tsv");
+    showToast("Cleaned dataset (TSV) downloaded.", "success");
+  }
+
+  function exportTreatmentSummaryCSV() {
+    const { treatments } = state.results;
+    if (!treatments || !treatments.length) {
+      showToast("No treatment summary to export.", "error");
       return;
     }
 
-    const cfg = state.config;
-    const data = {
-      meta: {
-        description: "Farming CBA decision aid summary prepared for an assistant",
-        horizonYears: cfg.horizonYears,
-        discountRate: cfg.discountRate,
-        pricePerUnit: cfg.pricePerUnit
-      },
-      treatments: treatmentsStats.map((st) => ({
-        name: st.treatment,
-        isControl: st.isControl,
-        plots: st.plots,
-        replicateCount: st.replicateCount,
-        avgYield: st.avgYield,
-        avgDeltaYield: st.avgDeltaYield,
-        avgVarCost: st.avgVarCost,
-        avgCapCost: st.avgCapCost,
-        pvBenefits: st.pvBenefits,
-        pvCosts: st.pvCosts,
-        netProfitOverTime: st.npv,
-        benefitPerDollar: st.bcr,
-        returnOnInvestment: st.roi,
-        rank: st.rank
-      }))
-    };
+    const headers = [
+      "Treatment name",
+      "Is control",
+      "Average yield (t per ha)",
+      "Average variable cost (per ha)",
+      "Average capital cost (per ha)",
+      "Total benefits over time (discounted)",
+      "Total costs over time (discounted)",
+      "Net profit over time",
+      "Benefit per dollar spent",
+      "Return on investment (percent)",
+      "Rank",
+      "Difference in net profit vs control",
+      "Difference in total cost vs control"
+    ];
 
-    el.value = JSON.stringify(data, null, 2);
+    const lines = [];
+    lines.push(headers.join(","));
+
+    for (const t of treatments) {
+      const row = [
+        `"${t.name.replace(/"/g, '""')}"`,
+        t.isControl ? "TRUE" : "FALSE",
+        Number.isNaN(t.avgYield) ? "" : t.avgYield.toFixed(4),
+        Number.isNaN(t.avgVarCost) ? "" : t.avgVarCost.toFixed(4),
+        Number.isNaN(t.avgCapCost) ? "" : t.avgCapCost.toFixed(4),
+        Number.isNaN(t.pvBenefits) ? "" : t.pvBenefits.toFixed(2),
+        Number.isNaN(t.pvTotalCosts) ? "" : t.pvTotalCosts.toFixed(2),
+        Number.isNaN(t.npv) ? "" : t.npv.toFixed(2),
+        Number.isNaN(t.bcr) ? "" : t.bcr.toFixed(4),
+        Number.isNaN(t.roi) ? "" : t.roi.toFixed(2),
+        t.rank,
+        Number.isNaN(t.deltaNpv) ? "" : t.deltaNpv.toFixed(2),
+        Number.isNaN(t.deltaPvCosts) ? "" : t.deltaPvCosts.toFixed(2)
+      ];
+      lines.push(row.join(","));
+    }
+
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/csv;charset=utf-8;"
+    });
+    downloadBlob(blob, "treatment_summary.csv");
+    showToast("Treatment summary (CSV) downloaded.", "success");
   }
 
-  // ======================
-  // Exports
-  // ======================
+  function exportComparisonCSV() {
+    const { treatments } = state.results;
+    if (!treatments || !treatments.length) {
+      showToast("No results table to export.", "error");
+      return;
+    }
 
-  function downloadFile(filename, content, mime) {
-    const blob = new Blob([content], { type: mime || "text/plain;charset=utf-8" });
+    const indicators = [
+      { key: "pvBenefits", label: "Total benefits over time (discounted)" },
+      { key: "pvTotalCosts", label: "Total costs over time (discounted)" },
+      { key: "npv", label: "Net profit over time" },
+      { key: "bcr", label: "Benefit per dollar spent" },
+      { key: "roi", label: "Return on investment (percent)" },
+      { key: "rank", label: "Overall ranking" },
+      {
+        key: "deltaNpv",
+        label: "Difference in net profit compared with control"
+      },
+      {
+        key: "deltaPvCosts",
+        label: "Difference in total cost compared with control"
+      }
+    ];
+
+    const control = treatments.find((t) => t.isControl) || treatments[0];
+    const nonControl = treatments.filter((t) => !t.isControl);
+    const ordered = [control, ...nonControl];
+
+    const header = ["What is measured"];
+    for (const t of ordered) {
+      header.push(t.isControl ? "Control (baseline)" : t.name);
+    }
+
+    const lines = [];
+    lines.push(header.map(csvEscape).join(","));
+
+    for (const ind of indicators) {
+      const row = [ind.label];
+      for (const t of ordered) {
+        const r = treatments.find((x) => x.name === t.name);
+        let value = "";
+        if (ind.key === "pvBenefits") {
+          value = Number.isNaN(r.pvBenefits) ? "" : r.pvBenefits.toFixed(2);
+        } else if (ind.key === "pvTotalCosts") {
+          value = Number.isNaN(r.pvTotalCosts) ? "" : r.pvTotalCosts.toFixed(2);
+        } else if (ind.key === "npv") {
+          value = Number.isNaN(r.npv) ? "" : r.npv.toFixed(2);
+        } else if (ind.key === "bcr") {
+          value = Number.isNaN(r.bcr) ? "" : r.bcr.toFixed(4);
+        } else if (ind.key === "roi") {
+          value = Number.isNaN(r.roi) ? "" : r.roi.toFixed(2);
+        } else if (ind.key === "rank") {
+          value = r.rank;
+        } else if (ind.key === "deltaNpv") {
+          value = Number.isNaN(r.deltaNpv) ? "" : r.deltaNpv.toFixed(2);
+        } else if (ind.key === "deltaPvCosts") {
+          value = Number.isNaN(r.deltaPvCosts) ? "" : r.deltaPvCosts.toFixed(2);
+        }
+        row.push(value);
+      }
+      lines.push(row.map(csvEscape).join(","));
+    }
+
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/csv;charset=utf-8;"
+    });
+    downloadBlob(blob, "comparison_to_control.csv");
+    showToast("Comparison-to-control results (CSV) downloaded.", "success");
+  }
+
+  function csvEscape(value) {
+    if (value === null || value === undefined) return "";
+    const s = String(value);
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
     a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 0);
   }
 
-  function exportCleanTsv() {
-    if (!state.header.length || !state.rows.length) {
-      showToast("No data to export.", "error");
+  function exportWorkbook() {
+    if (!window.XLSX) {
+      showToast("Excel library not available.", "error");
       return;
     }
-
-    const delimiter = "\t";
-    const headerLine = state.header.join(delimiter);
-    const lines = [headerLine];
-
-    state.rows.forEach((row) => {
-      const parts = state.header.map((h) => {
-        const v = row[h];
-        return v === undefined || v === null ? "" : String(v).replace(/\r?\n/g, " ");
-      });
-      lines.push(parts.join(delimiter));
-    });
-
-    const content = lines.join("\n");
-    downloadFile("farming_cba_cleaned.tsv", content, "text/tab-separated-values;charset=utf-8");
-    showToast("Cleaned dataset exported as TSV.");
-  }
-
-  function exportTreatmentCsv() {
-    if (!state.results || !state.results.treatments || !state.results.treatments.length) {
-      showToast("No treatment results to export.", "error");
+    if (!state.headers.length || !state.rows.length) {
+      showToast("No dataset loaded for workbook export.", "error");
       return;
     }
-
-    const treatmentsStats = state.results.treatments;
-    const header = [
-      "Treatment",
-      "IsControl",
-      "Plots",
-      "ReplicateCount",
-      "AvgYield",
-      "AvgDeltaYield",
-      "AvgVariableCost",
-      "AvgCapitalCost",
-      "TotalBenefitsOverTime",
-      "TotalCostsOverTime",
-      "NetProfitOverTime",
-      "BenefitPerDollarSpent",
-      "ReturnOnInvestment",
-      "Rank"
-    ];
-    const lines = [header.join(",")];
-
-    treatmentsStats.forEach((st) => {
-      const row = [
-        '"' + st.treatment.replace(/"/g, '""') + '"',
-        st.isControl ? "1" : "0",
-        st.plots,
-        st.replicateCount,
-        st.avgYield != null ? st.avgYield.toFixed(4) : "",
-        st.avgDeltaYield != null ? st.avgDeltaYield.toFixed(4) : "",
-        st.avgVarCost != null ? st.avgVarCost.toFixed(2) : "",
-        st.avgCapCost != null ? st.avgCapCost.toFixed(2) : "",
-        st.pvBenefits != null ? st.pvBenefits.toFixed(2) : "",
-        st.pvCosts != null ? st.pvCosts.toFixed(2) : "",
-        st.npv != null ? st.npv.toFixed(2) : "",
-        st.bcr != null ? st.bcr.toFixed(4) : "",
-        st.roi != null ? st.roi.toFixed(4) : "",
-        st.rank
-      ];
-      lines.push(row.join(","));
-    });
-
-    const content = lines.join("\n");
-    downloadFile("farming_cba_treatment_results.csv", content, "text/csv;charset=utf-8");
-    showToast("Treatment results exported as CSV.");
-  }
-
-  function exportSensitivityCsv() {
-    if (!state.sensitivity || !state.sensitivity.records) {
-      showToast("No sensitivity records to export.", "error");
-      return;
-    }
-
-    const header = [
-      "DiscountRate",
-      "PriceMultiplier",
-      "BestTreatment",
-      "BestNetProfitOverTime",
-      "ControlNetProfitOverTime",
-      "DifferenceBestMinusControl"
-    ];
-    const lines = [header.join(",")];
-
-    state.sensitivity.records.forEach((rec) => {
-      const delta = rec.bestNpv - rec.controlNpv;
-      const row = [
-        rec.discount,
-        rec.priceMultiplier,
-        '"' + rec.bestTreatment.replace(/"/g, '""') + '"',
-        rec.bestNpv.toFixed(2),
-        rec.controlNpv.toFixed(2),
-        delta.toFixed(2)
-      ];
-      lines.push(row.join(","));
-    });
-
-    const content = lines.join("\n");
-    downloadFile("farming_cba_sensitivity.csv", content, "text/csv;charset=utf-8");
-    showToast("Sensitivity grid exported as CSV.");
-  }
-
-  function exportExcelWorkbook() {
-    if (typeof XLSX === "undefined") {
-      showToast("Excel library is not available in this browser.", "error");
-      return;
-    }
-
     const wb = XLSX.utils.book_new();
 
-    if (state.header.length && state.rows.length) {
-      const dataArray = [state.header];
-      state.rows.forEach((row) => {
-        dataArray.push(state.header.map((h) => row[h]));
-      });
-      const wsData = XLSX.utils.aoa_to_sheet(dataArray);
-      XLSX.utils.book_append_sheet(wb, wsData, "RawData");
+    // Sheet 1: Cleaned dataset
+    const dataSheetAoA = [state.headers.slice()];
+    for (const row of state.rows) {
+      dataSheetAoA.push(
+        state.headers.map((h) =>
+          row[h] === undefined || row[h] === null ? "" : row[h]
+        )
+      );
     }
+    const wsData = XLSX.utils.aoa_to_sheet(dataSheetAoA);
+    XLSX.utils.book_append_sheet(wb, wsData, "Dataset");
 
-    if (state.results && state.results.treatments && state.results.treatments.length) {
-      const t = state.results.treatments;
-      const header = [
-        "Treatment",
-        "IsControl",
-        "Plots",
-        "ReplicateCount",
-        "AvgYield",
-        "AvgDeltaYield",
-        "AvgVariableCost",
-        "AvgCapitalCost",
-        "TotalBenefitsOverTime",
-        "TotalCostsOverTime",
-        "NetProfitOverTime",
-        "BenefitPerDollarSpent",
-        "ReturnOnInvestment",
-        "Rank"
+    // Sheet 2: Treatment summary
+    const { treatments } = state.results;
+    if (treatments && treatments.length) {
+      const summaryAoA = [
+        [
+          "Treatment name",
+          "Is control",
+          "Average yield (t per ha)",
+          "Average variable cost (per ha)",
+          "Average capital cost (per ha)",
+          "Total benefits over time (discounted)",
+          "Total costs over time (discounted)",
+          "Net profit over time",
+          "Benefit per dollar spent",
+          "Return on investment (percent)",
+          "Rank",
+          "Difference in net profit vs control",
+          "Difference in total cost vs control"
+        ]
       ];
-      const rows = [header];
-      t.forEach((st) => {
-        rows.push([
-          st.treatment,
-          st.isControl ? 1 : 0,
-          st.plots,
-          st.replicateCount,
-          st.avgYield,
-          st.avgDeltaYield,
-          st.avgVarCost,
-          st.avgCapCost,
-          st.pvBenefits,
-          st.pvCosts,
-          st.npv,
-          st.bcr,
-          st.roi,
-          st.rank
+
+      for (const t of treatments) {
+        summaryAoA.push([
+          t.name,
+          t.isControl ? "TRUE" : "FALSE",
+          Number.isNaN(t.avgYield) ? "" : t.avgYield,
+          Number.isNaN(t.avgVarCost) ? "" : t.avgVarCost,
+          Number.isNaN(t.avgCapCost) ? "" : t.avgCapCost,
+          Number.isNaN(t.pvBenefits) ? "" : t.pvBenefits,
+          Number.isNaN(t.pvTotalCosts) ? "" : t.pvTotalCosts,
+          Number.isNaN(t.npv) ? "" : t.npv,
+          Number.isNaN(t.bcr) ? "" : t.bcr,
+          Number.isNaN(t.roi) ? "" : t.roi,
+          t.rank,
+          Number.isNaN(t.deltaNpv) ? "" : t.deltaNpv,
+          Number.isNaN(t.deltaPvCosts) ? "" : t.deltaPvCosts
         ]);
-      });
-      const wsTreat = XLSX.utils.aoa_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, wsTreat, "Results");
-    }
-
-    if (state.sensitivity && state.sensitivity.records) {
-      const header = [
-        "DiscountRate",
-        "PriceMultiplier",
-        "BestTreatment",
-        "BestNetProfitOverTime",
-        "ControlNetProfitOverTime",
-        "DifferenceBestMinusControl"
-      ];
-      const rows = [header];
-      state.sensitivity.records.forEach((rec) => {
-        const delta = rec.bestNpv - rec.controlNpv;
-        rows.push([
-          rec.discount,
-          rec.priceMultiplier,
-          rec.bestTreatment,
-          rec.bestNpv,
-          rec.controlNpv,
-          delta
-        ]);
-      });
-      const wsSens = XLSX.utils.aoa_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, wsSens, "Sensitivity");
-    }
-
-    XLSX.writeFile(wb, "farming_cba_workbook.xlsx");
-    showToast("Excel workbook exported.");
-  }
-
-  // ======================
-  // Scenarios
-  // ======================
-
-  function loadScenariosFromStorage() {
-    try {
-      const raw = localStorage.getItem(SCENARIO_KEY);
-      if (!raw) {
-        state.scenarios = [];
-        renderScenarioSelect();
-        return;
       }
-      const parsed = JSON.parse(raw);
-      state.scenarios = Array.isArray(parsed) ? parsed : [];
-      renderScenarioSelect();
-    } catch (_) {
-      state.scenarios = [];
-      renderScenarioSelect();
+
+      const wsSummary = XLSX.utils.aoa_to_sheet(summaryAoA);
+      XLSX.utils.book_append_sheet(wb, wsSummary, "Treatment summary");
     }
+
+    // Sheet 3: Comparison to control
+    const compAoA = [];
+    const indicators = [
+      { key: "pvBenefits", label: "Total benefits over time (discounted)" },
+      { key: "pvTotalCosts", label: "Total costs over time (discounted)" },
+      { key: "npv", label: "Net profit over time" },
+      { key: "bcr", label: "Benefit per dollar spent" },
+      { key: "roi", label: "Return on investment (percent)" },
+      { key: "rank", label: "Overall ranking" },
+      {
+        key: "deltaNpv",
+        label: "Difference in net profit compared with control"
+      },
+      {
+        key: "deltaPvCosts",
+        label: "Difference in total cost compared with control"
+      }
+    ];
+
+    if (treatments && treatments.length) {
+      const control = treatments.find((t) => t.isControl) || treatments[0];
+      const nonControl = treatments.filter((t) => !t.isControl);
+      const ordered = [control, ...nonControl];
+
+      const headerRow = ["What is measured"];
+      for (const t of ordered) {
+        headerRow.push(t.isControl ? "Control (baseline)" : t.name);
+      }
+      compAoA.push(headerRow);
+
+      for (const ind of indicators) {
+        const row = [ind.label];
+        for (const t of ordered) {
+          const r = treatments.find((x) => x.name === t.name);
+          let v = "";
+          if (ind.key === "pvBenefits") v = r.pvBenefits;
+          else if (ind.key === "pvTotalCosts") v = r.pvTotalCosts;
+          else if (ind.key === "npv") v = r.npv;
+          else if (ind.key === "bcr") v = r.bcr;
+          else if (ind.key === "roi") v = r.roi;
+          else if (ind.key === "rank") v = r.rank;
+          else if (ind.key === "deltaNpv") v = r.deltaNpv;
+          else if (ind.key === "deltaPvCosts") v = r.deltaPvCosts;
+          row.push(v);
+        }
+        compAoA.push(row);
+      }
+
+      const wsComp = XLSX.utils.aoa_to_sheet(compAoA);
+      XLSX.utils.book_append_sheet(wb, wsComp, "Comparison to control");
+    }
+
+    XLSX.writeFile(wb, "faba_beans_cba_results.xlsx");
+    showToast("Excel workbook downloaded.", "success");
   }
 
-  function saveScenariosToStorage() {
+  // =========================
+  // 6) DATA LOAD & COMMIT
+  // =========================
+
+  async function loadDefaultDataset() {
     try {
-      localStorage.setItem(SCENARIO_KEY, JSON.stringify(state.scenarios));
-    } catch (_) {
-      // ignore
+      const response = await fetch("faba_beans_trial_clean_named.tsv", {
+        cache: "no-cache"
+      });
+      if (!response.ok) {
+        throw new Error("Default dataset could not be fetched.");
+      }
+      const text = await response.text();
+      commitParsedData(text, "Default trial data loaded.");
+    } catch (err) {
+      console.error(err);
+      showToast(
+        "Could not load default dataset. You can still upload or paste data.",
+        "error"
+      );
     }
   }
 
-  function renderScenarioSelect() {
-    const select = document.getElementById("scenarioSelect");
-    if (!select) return;
-    select.innerHTML = "";
+  function commitParsedData(text, successMessage) {
+    const parsed = parseDelimitedText(text);
+    state.rawText = text;
+    state.headers = parsed.headers;
+    state.rows = parsed.rows;
 
-    if (!state.scenarios.length) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.textContent = "No scenarios saved yet";
-      select.appendChild(opt);
-      return;
+    aggregateTreatments();
+    computeCBA();
+    renderAll();
+
+    if (successMessage) {
+      showToast(successMessage, "success");
     }
+  }
 
-    state.scenarios.forEach((sc, idx) => {
-      const opt = document.createElement("option");
-      opt.value = String(idx);
-      opt.textContent = sc.name;
-      select.appendChild(opt);
+  // =========================
+  // 7) UI WIRING
+  // =========================
+
+  function onTabClick(event) {
+    const button = event.currentTarget;
+    const tabId = button.getAttribute("data-tab");
+    if (!tabId) return;
+
+    document.querySelectorAll(".tab-button").forEach((btn) => {
+      btn.classList.toggle("active", btn === button);
+    });
+    document.querySelectorAll(".tab-panel").forEach((panel) => {
+      panel.classList.toggle("active", panel.id === tabId);
     });
   }
 
-  function handleSaveScenario() {
-    const nameInput = document.getElementById("scenarioName");
-    if (!nameInput) return;
-    const name = nameInput.value.trim();
-    if (!name) {
-      showToast("Please enter a scenario name.", "error");
-      return;
-    }
-
-    const cfg = { ...state.config };
-    const rawText = state.rawText;
-    const scenario = { name, cfg, rawText };
-
-    const existingIndex = state.scenarios.findIndex((s) => s.name === name);
-    if (existingIndex >= 0) {
-      state.scenarios[existingIndex] = scenario;
-    } else {
-      state.scenarios.push(scenario);
-    }
-
-    saveScenariosToStorage();
-    renderScenarioSelect();
-    showToast("Scenario saved.");
-  }
-
-  function handleLoadScenario() {
-    const select = document.getElementById("scenarioSelect");
-    if (!select) return;
-    const idx = parseInt(select.value, 10);
-    if (isNaN(idx) || idx < 0 || idx >= state.scenarios.length) {
-      showToast("Please select a saved scenario.", "error");
-      return;
-    }
-
-    const scenario = state.scenarios[idx];
-    state.config = { ...state.config, ...scenario.cfg };
-    commitDataset(scenario.rawText, scenario.name);
-
-    syncConfigInputsFromState();
-
-    showToast("Scenario loaded: " + scenario.name);
-  }
-
-  function handleDeleteScenario() {
-    const select = document.getElementById("scenarioSelect");
-    if (!select) return;
-    const idx = parseInt(select.value, 10);
-    if (isNaN(idx) || idx < 0 || idx >= state.scenarios.length) {
-      showToast("Please select a saved scenario to delete.", "error");
-      return;
-    }
-
-    const name = state.scenarios[idx].name;
-    state.scenarios.splice(idx, 1);
-    saveScenariosToStorage();
-    renderScenarioSelect();
-    showToast("Scenario deleted: " + name);
-  }
-
-  // ======================
-  // Config
-  // ======================
-
-  function syncConfigInputsFromState() {
-    const cfg = state.config;
-    const map = {
-      pricePerUnit: "pricePerUnit",
-      horizonYears: "horizonYears",
-      discountRate: "discountRate",
-      discountLow: "discountLow",
-      discountBase: "discountBase",
-      discountHigh: "discountHigh",
-      priceLow: "priceLow",
-      priceBase: "priceBase",
-      priceHigh: "priceHigh"
-    };
-
-    Object.entries(map).forEach(([key, id]) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (key === "discountRate" || key.startsWith("discount")) {
-        el.value = (cfg[key] * 100).toFixed(1).replace(/\.0$/, "");
-      } else {
-        el.value = String(cfg[key]);
-      }
-    });
-  }
-
-  function applyConfigFromInputs() {
-    const cfg = { ...state.config };
-
-    const priceInput = document.getElementById("pricePerUnit");
-    const horizonInput = document.getElementById("horizonYears");
-    const drInput = document.getElementById("discountRate");
-    const dLow = document.getElementById("discountLow");
-    const dBase = document.getElementById("discountBase");
-    const dHigh = document.getElementById("discountHigh");
-    const pLow = document.getElementById("priceLow");
-    const pBase = document.getElementById("priceBase");
-    const pHigh = document.getElementById("priceHigh");
+  function onApplyScenario() {
+    const priceInput = document.getElementById("pricePerTonne");
+    const yearsInput = document.getElementById("years");
+    const persInput = document.getElementById("persistenceYears");
+    const discInput = document.getElementById("discountRate");
+    const controlSelect = document.getElementById("controlChoice");
 
     if (priceInput) {
-      const v = parseFloat(priceInput.value);
-      if (!isNaN(v) && v >= 0) cfg.pricePerUnit = v;
+      state.params.pricePerTonne = parseNumber(priceInput.value) || 0;
+    }
+    if (yearsInput) {
+      state.params.years = parseInt(yearsInput.value, 10) || 1;
+    }
+    if (persInput) {
+      state.params.persistenceYears =
+        parseInt(persInput.value, 10) || state.params.years;
+    }
+    if (discInput) {
+      state.params.discountRate = parseNumber(discInput.value) || 0;
+    }
+    if (controlSelect && controlSelect.value) {
+      state.controlName = controlSelect.value;
     }
 
-    if (horizonInput) {
-      const v = parseInt(horizonInput.value, 10);
-      if (!isNaN(v) && v > 0) cfg.horizonYears = v;
-    }
-
-    if (drInput) {
-      const v = parseFloat(drInput.value);
-      if (!isNaN(v) && v >= 0) cfg.discountRate = v / 100;
-    }
-
-    if (dLow) {
-      const v = parseFloat(dLow.value);
-      if (!isNaN(v) && v >= 0) cfg.discountLow = v / 100;
-    }
-    if (dBase) {
-      const v = parseFloat(dBase.value);
-      if (!isNaN(v) && v >= 0) cfg.discountBase = v / 100;
-    }
-    if (dHigh) {
-      const v = parseFloat(dHigh.value);
-      if (!isNaN(v) && v >= 0) cfg.discountHigh = v / 100;
-    }
-
-    if (pLow) {
-      const v = parseFloat(pLow.value);
-      if (!isNaN(v) && v >= 0) cfg.priceLow = v;
-    }
-    if (pBase) {
-      const v = parseFloat(pBase.value);
-      if (!isNaN(v) && v >= 0) cfg.priceBase = v;
-    }
-    if (pHigh) {
-      const v = parseFloat(pHigh.value);
-      if (!isNaN(v) && v >= 0) cfg.priceHigh = v;
-    }
-
-    state.config = cfg;
-    runAllCalculations();
-    showToast("Economic settings applied.");
+    computeCBA();
+    renderAll();
+    showToast("Scenario settings updated.", "success");
   }
 
-  function resetConfigToDefault() {
-    state.config = {
-      pricePerUnit: 600,
-      horizonYears: 10,
-      discountRate: 0.06,
-      discountLow: 0.04,
-      discountBase: 0.06,
-      discountHigh: 0.08,
-      priceLow: 0.8,
-      priceBase: 1.0,
-      priceHigh: 1.2
-    };
-    syncConfigInputsFromState();
-    runAllCalculations();
-    showToast("Economic settings reset to default.");
-  }
+  function onFileInputChange(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
 
-  // ======================
-  // Appendix window
-  // ======================
-
-  function openAppendixWindow() {
-    window.open("technical-appendix.html", "_blank", "noopener");
-  }
-
-  // ======================
-  // Copy helpers
-  // ======================
-
-  function copyFromElement(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.select();
-    el.setSelectionRange(0, 999999);
-    const ok = document.execCommand("copy");
-    if (ok) {
-      showToast("Copied to clipboard.");
-    } else {
-      showToast("Could not copy to clipboard.", "error");
-    }
-  }
-
-  // ======================
-  // Default dataset
-  // ======================
-
-  function loadDefaultDataset() {
-    const pill = document.getElementById("datasetStatusPill");
-    if (pill) {
-      const valueSpan = pill.querySelector(".value");
-      if (valueSpan) {
-        valueSpan.textContent = "Loading full trial data";
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        commitParsedData(String(e.target.result), "Uploaded dataset loaded.");
+      } catch (err) {
+        console.error(err);
+        showToast("Could not parse uploaded file. Check its format.", "error");
       }
-    }
-
-    const url = "faba_beans_trial_clean_named.tsv";
-
-    fetch(url)
-      .then((resp) => {
-        if (!resp.ok) throw new Error("Not found");
-        return resp.text();
-      })
-      .then((text) => {
-        if (!text || !text.trim()) throw new Error("Empty file");
-        commitDataset(text, "faba_beans_trial_clean_named.tsv");
-      })
-      .catch(() => {
-        const fallbackEl = document.getElementById("defaultDataset");
-        const fallbackText = fallbackEl
-          ? (fallbackEl.value || fallbackEl.textContent || "").trim()
-          : "";
-        if (fallbackText) {
-          commitDataset(fallbackText, "Embedded trial data");
-        } else {
-          if (pill) {
-            const valueSpan = pill.querySelector(".value");
-            if (valueSpan) {
-              valueSpan.textContent =
-                "No dataset loaded. Please upload or paste the official trial file.";
-            }
-          }
-          showToast(
-            "Default trial file not found. Please upload faba_beans_trial_clean_named.tsv.",
-            "error"
-          );
-        }
-      });
+    };
+    reader.readAsText(file);
   }
 
-  // ======================
-  // Event wiring
-  // ======================
+  function onLoadPastedClick() {
+    const ta = document.getElementById("pasteInput");
+    if (!ta) return;
+    const text = ta.value;
+    if (!text || !text.trim()) {
+      showToast("Paste data before loading.", "error");
+      return;
+    }
+    try {
+      commitParsedData(text, "Pasted dataset loaded.");
+    } catch (err) {
+      console.error(err);
+      showToast("Could not parse pasted data. Check its format.", "error");
+    }
+  }
 
-  function bindEvents() {
+  function onReloadDefaultClick() {
+    loadDefaultDataset();
+  }
+
+  function onLeaderboardFilterChange() {
+    renderLeaderboard();
+  }
+
+  function onCopyAiBriefing() {
+    const ta = document.getElementById("aiBriefing");
+    if (!ta) return;
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    try {
+      document.execCommand("copy");
+      showToast("AI summary prompt copied.", "success");
+    } catch (_) {
+      showToast("Could not copy. Select and copy manually.", "error");
+    }
+  }
+
+  function attachEventListeners() {
+    document.querySelectorAll(".tab-button").forEach((btn) => {
+      btn.addEventListener("click", onTabClick);
+    });
+
+    const applyBtn = document.getElementById("applyScenario");
+    if (applyBtn) applyBtn.addEventListener("click", onApplyScenario);
+
     const fileInput = document.getElementById("fileInput");
-    if (fileInput) {
-      fileInput.addEventListener("change", (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          const text = evt.target.result;
-          commitDataset(text, file.name);
-        };
-        reader.readAsText(file);
-      });
-    }
+    if (fileInput) fileInput.addEventListener("change", onFileInputChange);
 
-    const btnParsePaste = document.getElementById("btnParsePaste");
-    if (btnParsePaste) {
-      btnParsePaste.addEventListener("click", () => {
-        const ta = document.getElementById("pasteInput");
-        if (!ta) return;
-        const text = ta.value.trim();
-        if (!text) {
-          showToast("Paste area is empty.", "error");
-          return;
-        }
-        commitDataset(text, "Pasted data");
-      });
-    }
+    const btnLoadPasted = document.getElementById("btnLoadPasted");
+    if (btnLoadPasted)
+      btnLoadPasted.addEventListener("click", onLoadPastedClick);
 
-    const btnUseDefault = document.getElementById("btnUseDefault");
-    if (btnUseDefault) {
-      btnUseDefault.addEventListener("click", () => {
-        loadDefaultDataset();
-      });
-    }
+    const btnReloadDefault = document.getElementById("btnReloadDefault");
+    if (btnReloadDefault)
+      btnReloadDefault.addEventListener("click", onReloadDefaultClick);
 
-    const btnApplyConfig = document.getElementById("btnApplyConfig");
-    if (btnApplyConfig) {
-      btnApplyConfig.addEventListener("click", applyConfigFromInputs);
-    }
+    const filterSelect = document.getElementById("leaderboardFilter");
+    if (filterSelect)
+      filterSelect.addEventListener("change", onLeaderboardFilterChange);
 
-    const btnResetConfig = document.getElementById("btnResetConfig");
-    if (btnResetConfig) {
-      btnResetConfig.addEventListener("click", resetConfigToDefault);
-    }
+    const btnCleanData = document.getElementById("btnExportCleanData");
+    if (btnCleanData)
+      btnCleanData.addEventListener("click", exportCleanDatasetTSV);
 
-    const btnSaveScenario = document.getElementById("btnSaveScenario");
-    if (btnSaveScenario) {
-      btnSaveScenario.addEventListener("click", handleSaveScenario);
-    }
+    const btnSummary = document.getElementById("btnExportSummary");
+    if (btnSummary)
+      btnSummary.addEventListener("click", exportTreatmentSummaryCSV);
 
-    const btnLoadScenario = document.getElementById("btnLoadScenario");
-    if (btnLoadScenario) {
-      btnLoadScenario.addEventListener("click", handleLoadScenario);
-    }
+    const btnResults = document.getElementById("btnExportResults");
+    if (btnResults)
+      btnResults.addEventListener("click", exportComparisonCSV);
 
-    const btnDeleteScenario = document.getElementById("btnDeleteScenario");
-    if (btnDeleteScenario) {
-      btnDeleteScenario.addEventListener("click", handleDeleteScenario);
-    }
-
-    const btnAll = document.getElementById("filterShowAll");
-    if (btnAll) {
-      btnAll.addEventListener("click", () => {
-        if (state.results && state.results.treatments) {
-          renderResultsLeaderboard(state.results.treatments, "all");
-          showToast("Showing all treatments.");
-        }
-      });
-    }
-
-    const btnTopNpv = document.getElementById("filterTopNPV");
-    if (btnTopNpv) {
-      btnTopNpv.addEventListener("click", () => {
-        if (state.results && state.results.treatments) {
-          renderResultsLeaderboard(state.results.treatments, "topNPV");
-          showToast("Showing top treatments by net profit over time.");
-        }
-      });
-    }
-
-    const btnTopBcr = document.getElementById("filterTopBCR");
-    if (btnTopBcr) {
-      btnTopBcr.addEventListener("click", () => {
-        if (state.results && state.results.treatments) {
-          renderResultsLeaderboard(state.results.treatments, "topBCR");
-          showToast("Showing top treatments by benefit per dollar spent.");
-        }
-      });
-    }
-
-    const btnOnlyBetter = document.getElementById("filterOnlyBetter");
-    if (btnOnlyBetter) {
-      btnOnlyBetter.addEventListener("click", () => {
-        if (state.results && state.results.treatments) {
-          renderResultsLeaderboard(state.results.treatments, "onlyBetter");
-          showToast("Showing treatments that beat the control.");
-        }
-      });
-    }
-
-    const btnExportClean = document.getElementById("btnExportClean");
-    if (btnExportClean) {
-      btnExportClean.addEventListener("click", exportCleanTsv);
-    }
-
-    const btnExportTreat = document.getElementById("btnExportTreatments");
-    if (btnExportTreat) {
-      btnExportTreat.addEventListener("click", exportTreatmentCsv);
-    }
-
-    const btnExportSens = document.getElementById("btnExportSensitivity");
-    if (btnExportSens) {
-      btnExportSens.addEventListener("click", exportSensitivityCsv);
-    }
-
-    const btnExportExcel = document.getElementById("btnExportExcel");
-    if (btnExportExcel) {
-      btnExportExcel.addEventListener("click", exportExcelWorkbook);
-    }
+    const btnWorkbook = document.getElementById("btnExportWorkbook");
+    if (btnWorkbook)
+      btnWorkbook.addEventListener("click", exportWorkbook);
 
     const btnCopyAi = document.getElementById("btnCopyAiBriefing");
-    if (btnCopyAi) {
-      btnCopyAi.addEventListener("click", () => copyFromElement("aiBriefingText"));
-    }
+    if (btnCopyAi)
+      btnCopyAi.addEventListener("click", onCopyAiBriefing);
 
-    const btnCopyJson = document.getElementById("btnCopyResultsJson");
-    if (btnCopyJson) {
-      btnCopyJson.addEventListener("click", () => copyFromElement("resultsJson"));
-    }
+    // Live scenario updates
+    const priceInput = document.getElementById("pricePerTonne");
+    const yearsInput = document.getElementById("years");
+    const persInput = document.getElementById("persistenceYears");
+    const discInput = document.getElementById("discountRate");
+    const controlSelect = document.getElementById("controlChoice");
 
-    const btnAppendixWindow = document.getElementById("btnOpenAppendixWindow");
-    if (btnAppendixWindow) {
-      btnAppendixWindow.addEventListener("click", openAppendixWindow);
-    }
+    if (priceInput)
+      priceInput.addEventListener("change", onApplyScenario);
+    if (yearsInput)
+      yearsInput.addEventListener("change", onApplyScenario);
+    if (persInput)
+      persInput.addEventListener("change", onApplyScenario);
+    if (discInput)
+      discInput.addEventListener("change", onApplyScenario);
+    if (controlSelect)
+      controlSelect.addEventListener("change", onApplyScenario);
   }
 
-  // ======================
-  // Init
-  // ======================
+  function renderAll() {
+    renderOverview();
+    renderDataSummaryAndChecks();
+    renderControlChoice();
+    computeCBA();
+    renderLeaderboard();
+    renderComparisonTable();
+    renderCharts();
+    buildAiBriefingPrompt();
+  }
 
   document.addEventListener("DOMContentLoaded", () => {
-    initTabs();
-    loadScenariosFromStorage();
-    syncConfigInputsFromState();
+    attachEventListeners();
     loadDefaultDataset();
-    bindEvents();
   });
 })();
